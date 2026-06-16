@@ -38,6 +38,15 @@ Mac 对话入口
 
 这个流程打通之后，其他所有功能都是增强项。
 
+当前仓库已经先打通了其中的“主动汇报”通道：
+
+```text
+其他电脑上的 Codex / Claude Code / Agent
+  -> agent report 或 loop-farm-reporter skill
+  -> Mac 控制中心 /api/reports
+  -> Mac Dashboard Reports 页
+```
+
 ## 你在 Mac 上看到什么
 
 Mac 上不应该是一堆远程桌面窗口，而应该是一个统一操作台。
@@ -239,4 +248,3 @@ Agent 处理日常琐事。
 你只处理授权、方向、边界条件和科研判断。
 每次判断都会进入数据飞轮，让下一轮循环工程更高效。
 ```
-

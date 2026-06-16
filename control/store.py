@@ -87,6 +87,17 @@ class Store:
                 resolved_at integer
             );
 
+            create table if not exists worker_reports (
+                id text primary key,
+                worker_id text not null,
+                source text not null,
+                level text not null,
+                title text not null,
+                message text not null,
+                payload_json text not null,
+                created_at integer not null
+            );
+
             create table if not exists audit_logs (
                 id text primary key,
                 actor_type text not null,
@@ -604,6 +615,86 @@ class Store:
             "created_at": resolved["created_at"],
             "resolved_at": resolved["resolved_at"],
         }
+
+    def create_worker_report(self, payload: dict[str, Any]) -> dict[str, Any]:
+        worker_id = str(payload["worker_id"])
+        agent_token = str(payload["agent_token"])
+        self.verify_worker(worker_id, agent_token)
+        source = str(payload.get("source") or "agent")
+        level = str(payload.get("level") or "info")
+        if source not in {"agent", "codex", "claude_code", "system", "human"}:
+            raise ValueError("source must be agent, codex, claude_code, system, or human")
+        if level not in {"debug", "info", "warning", "error", "blocked", "needs_human"}:
+            raise ValueError("level must be debug, info, warning, error, blocked, or needs_human")
+        report_id = new_id("rpt")
+        ts = now_ts()
+        row = {
+            "id": report_id,
+            "worker_id": worker_id,
+            "source": source,
+            "level": level,
+            "title": str(payload.get("title") or ""),
+            "message": str(payload.get("message") or ""),
+            "payload": payload.get("payload") or {},
+            "created_at": ts,
+        }
+        with self.conn:
+            self.conn.execute(
+                """
+                insert into worker_reports
+                (id, worker_id, source, level, title, message, payload_json, created_at)
+                values (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    report_id,
+                    worker_id,
+                    source,
+                    level,
+                    row["title"],
+                    row["message"],
+                    json.dumps(row["payload"]),
+                    ts,
+                ),
+            )
+            self.audit("worker", worker_id, "worker_report.create", row)
+        return row
+
+    def list_worker_reports(
+        self, worker_id: str | None = None, source: str | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        limit = max(1, min(limit, 1000))
+        clauses = []
+        params: list[Any] = []
+        if worker_id:
+            clauses.append("worker_id = ?")
+            params.append(worker_id)
+        if source:
+            clauses.append("source = ?")
+            params.append(source)
+        where = f"where {' and '.join(clauses)}" if clauses else ""
+        rows = self.conn.execute(
+            f"""
+            select id, worker_id, source, level, title, message, payload_json, created_at
+            from worker_reports
+            {where}
+            order by created_at desc
+            limit ?
+            """,
+            (*params, limit),
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "worker_id": row["worker_id"],
+                "source": row["source"],
+                "level": row["level"],
+                "title": row["title"],
+                "message": row["message"],
+                "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     def audit(
         self, actor_type: str, actor_id: str, action: str, payload: dict[str, Any]

@@ -38,6 +38,18 @@ if ($RepoUrl) {
   throw "No -RepoUrl provided and $InstallRoot does not contain pyproject.toml."
 }
 
+$skillSource = Join-Path $InstallRoot "skills\loop-farm-reporter"
+if (Test-Path $skillSource) {
+  $skillsDir = Join-Path $env:USERPROFILE ".codex\skills"
+  $skillTarget = Join-Path $skillsDir "loop-farm-reporter"
+  New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null
+  if (Test-Path $skillTarget) {
+    Remove-Item -Recurse -Force $skillTarget
+  }
+  Copy-Item -Recurse -Force $skillSource $skillTarget
+  Write-Host "Installed Codex skill: $skillTarget"
+}
+
 python -m venv "$AgentHome\venv"
 & "$AgentHome\venv\Scripts\python.exe" -m pip install --upgrade pip
 & "$AgentHome\venv\Scripts\pip.exe" install -e $InstallRoot
@@ -65,4 +77,3 @@ Start-ScheduledTask -TaskName $taskName
 Write-Host "Installed LoopFarmAgent for $MachineName."
 Write-Host "Agent home: $AgentHome"
 Write-Host "Check task: Get-ScheduledTask -TaskName LoopFarmAgent"
-

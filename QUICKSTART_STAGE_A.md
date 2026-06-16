@@ -166,7 +166,32 @@ python3 -m farmctl approvals resolve \
   --comment "not allowed in smoke test"
 ```
 
-## 8. 下一步
+## 8. 发送 Codex / Claude Code 报告
+
+worker 上报：
+
+```bash
+python3 -m agent report \
+  --config data/lab-gpu-01-agent.json \
+  --source codex \
+  --level needs_human \
+  --title "需要人类判断的边界条件" \
+  --message "当前参数会导致仿真发散，需要选择缩小范围或更换求解器。" \
+  --payload-json '{"options":["shrink_range","change_solver","stop"],"recommended":"shrink_range"}'
+```
+
+Mac 查看：
+
+```bash
+python3 -m farmctl reports list \
+  --control-url http://127.0.0.1:8787 \
+  --admin-token dev-admin-token \
+  --source codex
+```
+
+Web UI 也可以在 `Reports` 页查看。
+
+## 9. 下一步
 
 下一阶段要实现：
 
@@ -174,6 +199,6 @@ python3 -m farmctl approvals resolve \
 1. job_runner 调 EvoScientist
 2. blocked job 根据 approval decision 继续/停止
 3. artifact uploader
-4. Linux installer 支持 Tailscale auth key 自动入网
+4. Codex/Claude report 自动摘要和合并
 5. RunPod/云服务器复用同一套 bootstrap 流程
 ```

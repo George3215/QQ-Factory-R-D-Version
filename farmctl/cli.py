@@ -6,6 +6,7 @@ import os
 import shlex
 import sys
 from typing import Any
+from urllib.parse import urlencode
 
 from .http import request_json
 
@@ -195,7 +196,7 @@ def cmd_jobs_create(args: argparse.Namespace) -> None:
 def cmd_jobs_events(args: argparse.Namespace) -> None:
     path = "/api/job-events"
     if args.job_id:
-        path = f"{path}?job_id={args.job_id}"
+        path = f"{path}?{urlencode({'job_id': args.job_id})}"
     result = request_json(
         "GET",
         control_url_from(args),
@@ -226,6 +227,26 @@ def cmd_approvals_resolve(args: argparse.Namespace) -> None:
             "decision": decision,
             "comment": args.comment,
         },
+        admin_token=admin_token_from(args),
+    )
+    print_json(result)
+
+
+def cmd_reports_list(args: argparse.Namespace) -> None:
+    query = {}
+    if args.worker_id:
+        query["worker_id"] = args.worker_id
+    if args.source:
+        query["source"] = args.source
+    if args.limit:
+        query["limit"] = args.limit
+    path = "/api/reports"
+    if query:
+        path = f"{path}?{urlencode(query)}"
+    result = request_json(
+        "GET",
+        control_url_from(args),
+        path,
         admin_token=admin_token_from(args),
     )
     print_json(result)
@@ -322,6 +343,15 @@ def build_parser() -> argparse.ArgumentParser:
     approvals_resolve.add_argument("--decision", choices=["approve", "reject"], required=True)
     approvals_resolve.add_argument("--comment", default="")
     approvals_resolve.set_defaults(func=cmd_approvals_resolve)
+
+    reports = sub.add_parser("reports", help="View Codex/Claude/Agent reports from workers.")
+    reports_sub = reports.add_subparsers(dest="reports_command", required=True)
+    reports_list = reports_sub.add_parser("list", help="List worker reports.")
+    add_common_control_args(reports_list)
+    reports_list.add_argument("--worker-id", default=None)
+    reports_list.add_argument("--source", choices=["agent", "codex", "claude_code", "system", "human"], default=None)
+    reports_list.add_argument("--limit", type=int, default=200)
+    reports_list.set_defaults(func=cmd_reports_list)
 
     return parser
 

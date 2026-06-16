@@ -166,6 +166,64 @@ class StoreTest(unittest.TestCase):
         event_types = [event["event_type"] for event in events]
         self.assertEqual(event_types, ["claimed", "artifact", "succeeded"])
 
+    def test_worker_reports_capture_codex_and_claude_status(self) -> None:
+        bootstrap = self.store.create_bootstrap_token("lab-gpu-01", ttl_seconds=60)
+        worker = self.store.register_worker(
+            {
+                "token": bootstrap["token"],
+                "machine_name": "lab-gpu-01",
+                "hostname": "lab-gpu-01.local",
+                "os": "linux",
+                "tags": ["codex"],
+                "metadata": {},
+            }
+        )
+
+        codex_report = self.store.create_worker_report(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+                "source": "codex",
+                "level": "needs_human",
+                "title": "License boundary",
+                "message": "COMSOL license needs manual confirmation.",
+                "payload": {"options": ["wait", "switch-worker"]},
+            }
+        )
+        claude_report = self.store.create_worker_report(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+                "source": "claude_code",
+                "level": "info",
+                "title": "Patch ready",
+                "message": "Simulation runner patch compiled.",
+                "payload": {"branch": "agent/sim-runner"},
+            }
+        )
+
+        self.assertEqual(codex_report["source"], "codex")
+        self.assertEqual(codex_report["level"], "needs_human")
+        self.assertEqual(codex_report["payload"]["options"], ["wait", "switch-worker"])
+        self.assertEqual(claude_report["source"], "claude_code")
+
+        reports = self.store.list_worker_reports(worker_id=worker["id"])
+        self.assertEqual({report["id"] for report in reports}, {codex_report["id"], claude_report["id"]})
+
+        codex_reports = self.store.list_worker_reports(source="codex")
+        self.assertEqual(len(codex_reports), 1)
+        self.assertEqual(codex_reports[0]["title"], "License boundary")
+
+        with self.assertRaises(ValueError):
+            self.store.create_worker_report(
+                {
+                    "worker_id": worker["id"],
+                    "agent_token": worker["agent_token"],
+                    "source": "unknown",
+                    "title": "Bad report",
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

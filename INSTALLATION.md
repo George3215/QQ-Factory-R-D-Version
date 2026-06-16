@@ -104,6 +104,8 @@ Check:
 systemctl status loop-farm-agent
 ```
 
+The installer also copies `skills/loop-farm-reporter` to the sudo user's `~/.codex/skills/loop-farm-reporter` when the skill exists in the cloned repo.
+
 ## 5. Windows Worker
 
 Run in PowerShell:
@@ -117,6 +119,8 @@ Check:
 ```powershell
 Get-ScheduledTask -TaskName LoopFarmAgent
 ```
+
+The installer also copies `skills\loop-farm-reporter` to `%USERPROFILE%\.codex\skills\loop-farm-reporter`.
 
 ## 6. Optional macOS Worker
 
@@ -159,3 +163,52 @@ Worker executes it on the next daemon cycle. For manual test:
 ```bash
 python3 -m agent run-once --config data/lab-gpu-01-agent.json
 ```
+
+## 9. Codex / Claude Code Reports
+
+After a worker is registered, Codex, Claude Code, EvoScientist, or any local worker process can push status back to the Mac control host.
+
+Run on the worker:
+
+```bash
+python3 -m agent report \
+  --config ~/.loop-farm-agent/config.json \
+  --source codex \
+  --level info \
+  --title "Worker report test" \
+  --message "Codex can report back to the Mac control host."
+```
+
+For a human decision:
+
+```bash
+python3 -m agent report \
+  --config ~/.loop-farm-agent/config.json \
+  --source claude_code \
+  --level needs_human \
+  --title "License decision needed" \
+  --message "The simulation needs a license allocation decision before continuing." \
+  --payload-json '{"options":["wait","move_worker","stop"],"recommended":"move_worker","risk":"L4"}'
+```
+
+View on the Mac:
+
+```bash
+python3 -m farmctl reports list \
+  --control-url http://127.0.0.1:8787 \
+  --admin-token dev-admin-token
+```
+
+Or open the web UI and go to:
+
+```text
+Reports
+```
+
+The repo also includes a Codex skill for the same channel, and the worker installers copy it into the default Codex skill directory:
+
+```text
+skills/loop-farm-reporter
+```
+
+More details: [CODEX_CLAUDE_REPORTING.md](./CODEX_CLAUDE_REPORTING.md).

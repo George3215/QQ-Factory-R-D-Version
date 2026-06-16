@@ -15,6 +15,7 @@
 - [x] Worker registration
 - [x] Heartbeat
 - [x] Approval request creation
+- [x] Codex/Claude/Agent report channel
 - [x] Tailscale auth key support in installer
 - [x] macOS launchd installer as optional fallback
 - [x] Windows scheduled-task installer
@@ -36,6 +37,7 @@
 - [x] Machines page
 - [x] Jobs page
 - [x] Approvals page
+- [x] Reports page
 - [ ] Results page
 - [ ] Chat-to-job prototype
 
@@ -63,4 +65,5 @@
 - [ ] `repair_rules`
 - [ ] `failure_taxonomy`
 - [ ] `research_memories`
+- [ ] report deduplication and summarization
 - [ ] weekly loop-engineering report

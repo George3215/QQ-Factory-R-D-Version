@@ -44,6 +44,19 @@ class ControlHandler(BaseHTTPRequestHandler):
                 query = parse_qs(parsed.query)
                 job_id = query.get("job_id", [None])[0]
                 self.send_json({"events": self.store.list_job_events(job_id=job_id)})
+            elif path == "/api/reports":
+                self.require_admin()
+                query = parse_qs(parsed.query)
+                worker_id = query.get("worker_id", [None])[0]
+                source = query.get("source", [None])[0]
+                limit = int(query.get("limit", ["200"])[0])
+                self.send_json(
+                    {
+                        "reports": self.store.list_worker_reports(
+                            worker_id=worker_id, source=source, limit=limit
+                        )
+                    }
+                )
             elif path == "/api/approvals":
                 self.require_admin()
                 self.send_json({"approvals": self.store.list_approvals()})
@@ -97,6 +110,10 @@ class ControlHandler(BaseHTTPRequestHandler):
                 )
             elif path == "/api/jobs/complete":
                 self.send_json(self.store.complete_job(body))
+            elif path == "/api/reports":
+                self.send_json(
+                    self.store.create_worker_report(body), status=HTTPStatus.CREATED
+                )
             elif path == "/api/approvals":
                 self.send_json(
                     self.store.create_approval(body), status=HTTPStatus.CREATED

@@ -80,6 +80,14 @@ elif [[ ! -f "$INSTALL_ROOT/pyproject.toml" ]]; then
   exit 1
 fi
 
+if [[ -d "$INSTALL_ROOT/skills/loop-farm-reporter" ]]; then
+  CODEX_SKILLS_DIR="$HOME/.codex/skills"
+  mkdir -p "$CODEX_SKILLS_DIR"
+  rm -rf "$CODEX_SKILLS_DIR/loop-farm-reporter"
+  cp -R "$INSTALL_ROOT/skills/loop-farm-reporter" "$CODEX_SKILLS_DIR/loop-farm-reporter"
+  echo "Installed Codex skill: $CODEX_SKILLS_DIR/loop-farm-reporter"
+fi
+
 python3 -m venv "$AGENT_HOME/venv"
 "$AGENT_HOME/venv/bin/python" -m pip install --upgrade pip
 "$AGENT_HOME/venv/bin/pip" install -e "$INSTALL_ROOT"
@@ -126,4 +134,3 @@ launchctl load "$PLIST"
 
 echo "Installed com.loopfarm.agent for $MACHINE_NAME."
 echo "Check logs at: $AGENT_HOME/logs"
-

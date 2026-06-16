@@ -1,0 +1,4 @@
+interface:
+  display_name: "Loop Farm Reporter"
+  short_description: "Report Codex and Claude Code status to the Mac control host."
+  default_prompt: "Report this worker's current Codex or Claude Code status to the Loop Farm Mac control host."

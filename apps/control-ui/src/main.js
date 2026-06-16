@@ -5,6 +5,7 @@ const state = {
   jobs: [],
   approvals: [],
   events: [],
+  reports: [],
   token: localStorage.getItem("loopFarmAdminToken") || "",
 };
 
@@ -14,6 +15,7 @@ const views = [
   ["workers", "WK", "Workers", "机器"],
   ["jobs", "JB", "Jobs", "任务"],
   ["approvals", "AP", "Approvals", "审批"],
+  ["reports", "RP", "Reports", "Codex/Claude"],
   ["events", "EV", "Events", "事件"],
 ];
 
@@ -70,16 +72,18 @@ async function refresh() {
     state.apiOnline = false;
   }
   if (state.token) {
-    const [workers, jobs, approvals, events] = await Promise.allSettled([
+    const [workers, jobs, approvals, events, reports] = await Promise.allSettled([
       api("/api/workers"),
       api("/api/jobs"),
       api("/api/approvals"),
       api("/api/job-events"),
+      api("/api/reports"),
     ]);
     if (workers.status === "fulfilled") state.workers = workers.value.workers || [];
     if (jobs.status === "fulfilled") state.jobs = jobs.value.jobs || [];
     if (approvals.status === "fulfilled") state.approvals = approvals.value.approvals || [];
     if (events.status === "fulfilled") state.events = events.value.events || [];
+    if (reports.status === "fulfilled") state.reports = reports.value.reports || [];
   }
   updateShell();
   renderView();
@@ -96,11 +100,11 @@ function updateShell() {
 
   const eventList = document.querySelector("#eventList");
   eventList.replaceChildren();
-  state.events.slice(0, 12).forEach((event) => {
+  state.reports.slice(0, 12).forEach((report) => {
     const item = h("div", "event-item");
     item.append(
-      h("strong", "", `${event.event_type} · ${event.job_id || event.worker_id || "system"}`),
-      h("small", "", event.message || JSON.stringify(event.payload || {}))
+      h("strong", "", `${report.source} · ${report.level} · ${report.title}`),
+      h("small", "", `${report.worker_id} · ${report.message || JSON.stringify(report.payload || {})}`)
     );
     eventList.append(item);
   });
@@ -146,6 +150,7 @@ function renderOverview() {
         <div class="row"><div class="row-main"><strong>控制中心</strong><small>${state.apiOnline ? "已连接" : "离线"}</small></div>${token("API", state.apiOnline ? "online" : "offline")}</div>
         <div class="row"><div class="row-main"><strong>Worker</strong><small>已注册机器</small></div><strong>${state.workers.length}</strong></div>
         <div class="row"><div class="row-main"><strong>待审批</strong><small>需要你判断的问题</small></div><strong>${state.approvals.filter((x) => x.status === "pending").length}</strong></div>
+        <div class="row"><div class="row-main"><strong>Codex/Claude 报告</strong><small>其他电脑主动发回的信息</small></div><strong>${state.reports.length}</strong></div>
       `, "M2")}
       ${panel("今日推进标准", `
         <div class="row"><div class="row-main"><strong>能否通过 Mac 调度更多事情</strong><small>新增 job / install / approval 操作都算</small></div></div>
@@ -261,6 +266,19 @@ function renderEvents() {
   `).join("") || "<p>No events.</p>");
 }
 
+function renderReports() {
+  viewHost.innerHTML = panel("Codex / Claude Code Reports", state.reports.map((report) => `
+    <div class="row">
+      <div class="row-main">
+        <strong>${escapeHtml(report.source)} · ${escapeHtml(report.title)}</strong>
+        <small>${escapeHtml(report.worker_id)} · ${escapeHtml(report.level)} · ${escapeHtml(report.message)}</small>
+        <small>${escapeHtml(JSON.stringify(report.payload || {}))}</small>
+      </div>
+      ${token("level", report.level)}
+    </div>
+  `).join("") || "<p>No Codex/Claude reports yet.</p>");
+}
+
 function renderView() {
   setTitle();
   if (state.view === "overview") renderOverview();
@@ -268,6 +286,7 @@ function renderView() {
   if (state.view === "workers") renderWorkers();
   if (state.view === "jobs") renderJobs();
   if (state.view === "approvals") renderApprovals();
+  if (state.view === "reports") renderReports();
   if (state.view === "events") renderEvents();
 }
 

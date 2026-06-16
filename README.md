@@ -6,17 +6,27 @@
 
 ## 当前仓库状态
 
-这个仓库现在已经包含 Stage A 原型：一台新机器可以通过 bootstrap token 注册成 worker，并向控制中心发送 heartbeat。后续会在这个基础上接入 EvoScientist job runner、Mac Dashboard、云服务器自动租赁。
+这个仓库现在已经包含 Stage A 原型：一台新机器可以通过 bootstrap token 注册成 worker，向 Mac 控制中心发送 heartbeat，并把 Codex/Claude Code/Agent 的状态报告推回 Mac。后续会在这个基础上接入 EvoScientist job runner、云服务器自动租赁和科研数据飞轮。
+
+当前架构决策：
+
+```text
+Mac = 唯一主机 / 控制端 / 人类操作台
+Linux worker = 被添加的科研/仿真机器
+Windows worker = 被添加的科研/仿真机器
+VPS / Tailscale / RustDesk = 网络与远控兜底，不是第二个主控
+```
 
 当前代码结构：
 
 ```text
-control/     最小控制中心 API，保存 worker、job、approval、audit
-agent/       EvoScientist worker wrapper 的最小外壳：注册、heartbeat、审批请求
-farmctl/     Mac 侧 CLI：创建 token、列 worker、创建 job、生成安装命令
-install/     Linux/Windows worker 一键安装脚本，macOS worker 为备用
+control/     最小控制中心 API，保存 worker、job、report、approval、audit
+agent/       EvoScientist worker wrapper 的最小外壳：注册、heartbeat、上报、审批请求
+farmctl/     Mac 侧 CLI：创建 token、列 worker、创建 job、查看 report、生成安装命令
+install/     Linux/Windows worker 一键安装脚本，自动复制上报 skill；macOS worker 为备用
 apps/        轻量控制台 UI，由 control server 直接托管
 infra/       Docker、Compose、systemd、cloud-init 模板
+skills/      Codex skill：把 Codex/Claude Code 状态推回 Mac
 examples/    示例机器清单、worker 配置、job payload
 tests/       最小单元测试
 scripts/     smoke 测试脚本
@@ -32,6 +42,7 @@ make smoke
 
 更详细的 Stage A 使用说明见 [QUICKSTART_STAGE_A.md](./QUICKSTART_STAGE_A.md)。
 一体化安装和三端 worker 安装流程见 [INSTALLATION.md](./INSTALLATION.md)。
+Codex/Claude Code 上报通道见 [CODEX_CLAUDE_REPORTING.md](./CODEX_CLAUDE_REPORTING.md)。
 
 ## 1. 先给结论
 

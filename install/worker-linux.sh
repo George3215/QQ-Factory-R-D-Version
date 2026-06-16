@@ -134,6 +134,33 @@ elif [[ ! -f "$INSTALL_ROOT/pyproject.toml" ]]; then
   exit 1
 fi
 
+install_codex_skill() {
+  local source_dir="$INSTALL_ROOT/skills/loop-farm-reporter"
+  if [[ ! -d "$source_dir" ]]; then
+    return
+  fi
+
+  local target_user="${SUDO_USER:-root}"
+  local target_home=""
+  if command -v getent >/dev/null 2>&1; then
+    target_home="$(getent passwd "$target_user" | cut -d: -f6 || true)"
+  fi
+  if [[ -z "$target_home" ]]; then
+    target_home="${HOME:-/root}"
+  fi
+
+  local skills_dir="$target_home/.codex/skills"
+  mkdir -p "$skills_dir"
+  rm -rf "$skills_dir/loop-farm-reporter"
+  cp -R "$source_dir" "$skills_dir/loop-farm-reporter"
+  if [[ "$target_user" != "root" ]] && id "$target_user" >/dev/null 2>&1; then
+    chown -R "$target_user" "$target_home/.codex"
+  fi
+  echo "Installed Codex skill: $skills_dir/loop-farm-reporter"
+}
+
+install_codex_skill
+
 python3 -m venv "$AGENT_HOME/venv"
 "$AGENT_HOME/venv/bin/python" -m pip install --upgrade pip
 "$AGENT_HOME/venv/bin/pip" install -e "$INSTALL_ROOT"

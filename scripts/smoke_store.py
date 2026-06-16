@@ -73,11 +73,24 @@ def main() -> None:
                 "body": {"risk": "L4", "recommended": "reject"},
             }
         )
+        report = store.create_worker_report(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+                "source": "codex",
+                "level": "needs_human",
+                "title": "Smoke report",
+                "message": "Codex reached a manual decision point.",
+                "payload": {"decision": "continue-or-stop"},
+            }
+        )
+        reports = store.list_worker_reports(source="codex")
 
         print("smoke ok")
         print(f"worker={worker['id']}")
         print(f"job={job['id']} claimed={claimed['status']} completed={completed['status']}")
         print(f"approval={approval['id']}")
+        print(f"report={report['id']} reports={len(reports)}")
         store.close()
 
 

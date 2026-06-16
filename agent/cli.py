@@ -138,6 +138,23 @@ def cmd_approval_request(args: argparse.Namespace) -> None:
     print_json(post_json(cfg.control_url, "/api/approvals", payload))
 
 
+def cmd_report(args: argparse.Namespace) -> None:
+    cfg = AgentConfig.load(args.config)
+    payload_body: dict[str, Any] = {}
+    if args.payload_json:
+        payload_body = json.loads(args.payload_json)
+    payload = {
+        "worker_id": cfg.worker_id,
+        "agent_token": cfg.agent_token,
+        "source": args.source,
+        "level": args.level,
+        "title": args.title,
+        "message": args.message,
+        "payload": payload_body,
+    }
+    print_json(post_json(cfg.control_url, "/api/reports", payload))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="loop-farm-agent",
@@ -179,6 +196,15 @@ def build_parser() -> argparse.ArgumentParser:
     approval.add_argument("--title", required=True)
     approval.add_argument("--body-json", default="{}")
     approval.set_defaults(func=cmd_approval_request)
+
+    report = sub.add_parser("report", help="Send a Codex/Claude/Agent report to the Mac control host.")
+    report.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    report.add_argument("--source", choices=["agent", "codex", "claude_code", "system", "human"], default="agent")
+    report.add_argument("--level", choices=["debug", "info", "warning", "error", "blocked", "needs_human"], default="info")
+    report.add_argument("--title", required=True)
+    report.add_argument("--message", default="")
+    report.add_argument("--payload-json", default="{}")
+    report.set_defaults(func=cmd_report)
 
     return parser
 

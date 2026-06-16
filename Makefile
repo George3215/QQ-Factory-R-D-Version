@@ -21,7 +21,8 @@ pycheck:
 	$(PYTHON) -m py_compile \
 		control/server.py control/store.py \
 		farmctl/cli.py farmctl/http.py \
-		agent/cli.py agent/config.py agent/http.py agent/inventory.py agent/runner.py
+		agent/cli.py agent/config.py agent/http.py agent/inventory.py agent/runner.py \
+		skills/loop-farm-reporter/scripts/report.py
 
 test:
 	$(PYTHON) -m unittest discover -s tests
