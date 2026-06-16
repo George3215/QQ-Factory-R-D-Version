@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
 import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .store import Store
 
@@ -29,7 +31,7 @@ class ControlHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
-            if path == "/health":
+            if path in {"/health", "/api/health"}:
                 self.send_json({"ok": True, "service": "loop-farm-control"})
             elif path == "/api/workers":
                 self.require_admin()
@@ -45,6 +47,10 @@ class ControlHandler(BaseHTTPRequestHandler):
             elif path == "/api/approvals":
                 self.require_admin()
                 self.send_json({"approvals": self.store.list_approvals()})
+            elif path.startswith("/install/"):
+                self.serve_install_file(path)
+            elif self.server.ui_dir is not None:  # type: ignore[attr-defined]
+                self.serve_ui_file(path)
             else:
                 self.send_error_json(HTTPStatus.NOT_FOUND, "not found")
         except Exception as exc:
@@ -130,6 +136,38 @@ class ControlHandler(BaseHTTPRequestHandler):
     def send_error_json(self, status: HTTPStatus, message: str) -> None:
         self.send_json({"ok": False, "error": message}, status=status)
 
+    def serve_static_file(self, root: Path, request_path: str, index: bool = False) -> None:
+        rel = unquote(request_path).lstrip("/")
+        if index and (rel == "" or rel.endswith("/")):
+            rel = f"{rel}index.html"
+        target = (root / rel).resolve()
+        root_resolved = root.resolve()
+        if root_resolved not in target.parents and target != root_resolved:
+            self.send_error_json(HTTPStatus.FORBIDDEN, "forbidden")
+            return
+        if not target.is_file():
+            self.send_error_json(HTTPStatus.NOT_FOUND, "not found")
+            return
+        mime, _ = mimetypes.guess_type(str(target))
+        data = target.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", mime or "application/octet-stream")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def serve_ui_file(self, path: str) -> None:
+        ui_dir = self.server.ui_dir  # type: ignore[attr-defined]
+        rel_path = path
+        if rel_path == "/":
+            rel_path = "/index.html"
+        self.serve_static_file(ui_dir, rel_path.lstrip("/"), index=False)
+
+    def serve_install_file(self, path: str) -> None:
+        install_dir = self.server.install_dir  # type: ignore[attr-defined]
+        rel_path = path.removeprefix("/install/")
+        self.serve_static_file(install_dir, rel_path, index=False)
+
     def log_message(self, fmt: str, *args: Any) -> None:
         if os.environ.get("LOOP_FARM_QUIET_HTTP") == "1":
             return
@@ -143,17 +181,40 @@ class ControlServer(ThreadingHTTPServer):
         RequestHandlerClass: type[BaseHTTPRequestHandler],
         store: Store,
         admin_token: str,
+        ui_dir: Path | None,
+        install_dir: Path,
     ):
         super().__init__(server_address, RequestHandlerClass)
         self.store = store
         self.admin_token = admin_token
+        self.ui_dir = ui_dir
+        self.install_dir = install_dir
 
 
-def run(host: str, port: int, db_path: str, admin_token: str) -> None:
+def run(
+    host: str,
+    port: int,
+    db_path: str,
+    admin_token: str,
+    ui_dir: str | None = None,
+    install_dir: str = "install",
+) -> None:
     store = Store(db_path)
-    server = ControlServer((host, port), ControlHandler, store, admin_token)
+    ui_path = Path(ui_dir).resolve() if ui_dir else None
+    install_path = Path(install_dir).resolve()
+    server = ControlServer(
+        (host, port),
+        ControlHandler,
+        store,
+        admin_token,
+        ui_path,
+        install_path,
+    )
     print(f"loop-farm-control listening on http://{host}:{port}")
     print(f"database: {db_path}")
+    if ui_path:
+        print(f"ui: {ui_path}")
+    print(f"install scripts: {install_path}")
     server.serve_forever()
 
 
@@ -171,8 +232,13 @@ def main() -> None:
         "--admin-token",
         default=os.environ.get("LOOP_FARM_ADMIN_TOKEN", DEFAULT_ADMIN_TOKEN),
     )
+    parser.add_argument("--ui", default=os.environ.get("LOOP_FARM_UI_DIR"))
+    parser.add_argument(
+        "--install-dir",
+        default=os.environ.get("LOOP_FARM_INSTALL_DIR", "install"),
+    )
     args = parser.parse_args()
-    run(args.host, args.port, args.db, args.admin_token)
+    run(args.host, args.port, args.db, args.admin_token, args.ui, args.install_dir)
 
 
 if __name__ == "__main__":

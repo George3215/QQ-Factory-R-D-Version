@@ -15,7 +15,7 @@
 | Agent | EvoScientist fork + Python worker wrapper | 不从零写 Agent，直接爆改 EvoScientist |
 | 消息队列 | NATS JetStream | 轻量，适合多 agent 任务、状态、事件 |
 | 数据库 | PostgreSQL | 长期稳定，记录机器、任务、审批、日志 |
-| 前端 Dashboard | Next.js + shadcn/ui | 快速做出可用控制台 |
+| 前端 Dashboard | 轻量 HTML/CSS/JS，参考 EvoScientist-Studio | 直接由 control server 托管，安装简单 |
 | Mac 对话入口 | 先做 Web Chat，再做 CLI | 简单、稳定、跨设备 |
 | 本地部署 | Docker Compose | 长期够用，不要一开始上 Kubernetes |
 | 监控 | Grafana + Prometheus，第二阶段再加 | 第一阶段先别复杂化 |
@@ -156,8 +156,7 @@ Agent 能上报任务成功/失败。
 工具：
 
 ```text
-Next.js
-shadcn/ui
+轻量 HTML/CSS/JS control-ui
 FastAPI
 OpenAI API 或本地模型
 ```

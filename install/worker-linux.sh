@@ -5,6 +5,7 @@ CONTROL_URL=""
 BOOTSTRAP_TOKEN=""
 MACHINE_NAME="$(hostname)"
 REPO_URL=""
+TAILSCALE_AUTH_KEY=""
 INSTALL_ROOT="/opt/loop-farm"
 AGENT_HOME="/opt/loop-farm-agent"
 SERVICE_NAME="loop-farm-agent"
@@ -17,11 +18,12 @@ Usage:
 Options:
   --machine-name NAME       Worker machine name. Defaults to hostname.
   --repo-url URL            Git repo URL for loop-farm. If omitted, INSTALL_ROOT must already exist.
+  --tailscale-auth-key KEY  Optional Tailscale auth key for automatic join.
   --install-root PATH       Defaults to /opt/loop-farm.
   --agent-home PATH         Defaults to /opt/loop-farm-agent.
 
 Environment:
-  CONTROL_URL, BOOTSTRAP_TOKEN, MACHINE_NAME, REPO_URL, INSTALL_ROOT, AGENT_HOME
+  CONTROL_URL, BOOTSTRAP_TOKEN, MACHINE_NAME, REPO_URL, TAILSCALE_AUTH_KEY, INSTALL_ROOT, AGENT_HOME
 USAGE
 }
 
@@ -41,6 +43,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --repo-url)
       REPO_URL="$2"
+      shift 2
+      ;;
+    --tailscale-auth-key)
+      TAILSCALE_AUTH_KEY="$2"
       shift 2
       ;;
     --install-root)
@@ -67,6 +73,7 @@ CONTROL_URL="${CONTROL_URL:-${LOOP_FARM_CONTROL_URL:-}}"
 BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN:-${LOOP_FARM_BOOTSTRAP_TOKEN:-}}"
 MACHINE_NAME="${MACHINE_NAME:-${LOOP_FARM_MACHINE_NAME:-$(hostname)}}"
 REPO_URL="${REPO_URL:-${LOOP_FARM_REPO_URL:-}}"
+TAILSCALE_AUTH_KEY="${TAILSCALE_AUTH_KEY:-${LOOP_FARM_TAILSCALE_AUTH_KEY:-}}"
 INSTALL_ROOT="${INSTALL_ROOT:-${LOOP_FARM_INSTALL_ROOT:-/opt/loop-farm}}"
 AGENT_HOME="${AGENT_HOME:-${LOOP_FARM_AGENT_HOME:-/opt/loop-farm-agent}}"
 
@@ -99,6 +106,19 @@ install_packages() {
 }
 
 install_packages
+
+if [[ -n "$TAILSCALE_AUTH_KEY" ]]; then
+  if ! need_cmd tailscale; then
+    if need_cmd apt-get; then
+      curl -fsSL https://tailscale.com/install.sh | sh
+    else
+      echo "tailscale not found; install it manually or extend this script for your distro." >&2
+    fi
+  fi
+  if need_cmd tailscale; then
+    tailscale up --auth-key "$TAILSCALE_AUTH_KEY" --hostname "$MACHINE_NAME" || true
+  fi
+fi
 
 mkdir -p "$INSTALL_ROOT" "$AGENT_HOME" "$AGENT_HOME/logs" "$AGENT_HOME/workspaces" "$AGENT_HOME/artifacts"
 
@@ -149,4 +169,3 @@ systemctl enable --now "$SERVICE_NAME"
 
 echo "Installed $SERVICE_NAME for $MACHINE_NAME."
 echo "Check status with: systemctl status $SERVICE_NAME"
-

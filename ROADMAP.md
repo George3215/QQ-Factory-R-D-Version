@@ -15,9 +15,9 @@
 - [x] Worker registration
 - [x] Heartbeat
 - [x] Approval request creation
-- [ ] Tailscale auth key support in installer
-- [ ] macOS launchd installer
-- [ ] Windows Service installer
+- [x] Tailscale auth key support in installer
+- [x] macOS launchd installer as optional fallback
+- [x] Windows scheduled-task installer
 
 ## M2: Job Execution
 
@@ -32,10 +32,10 @@
 
 ## M3: Mac Control Surface
 
-- [ ] Minimal Web Dashboard
-- [ ] Machines page
-- [ ] Jobs page
-- [ ] Approvals page
+- [x] Minimal Web Dashboard
+- [x] Machines page
+- [x] Jobs page
+- [x] Approvals page
 - [ ] Results page
 - [ ] Chat-to-job prototype
 

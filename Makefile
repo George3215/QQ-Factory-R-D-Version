@@ -34,7 +34,9 @@ control:
 		--host $(CONTROL_HOST) \
 		--port $(CONTROL_PORT) \
 		--db $(CONTROL_DB) \
-		--admin-token $(ADMIN_TOKEN)
+		--admin-token $(ADMIN_TOKEN) \
+		--ui apps/control-ui \
+		--install-dir install
 
 self-test:
 	$(PYTHON) -m agent self-test

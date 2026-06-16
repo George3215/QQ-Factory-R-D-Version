@@ -1,8 +1,8 @@
 # 其他电脑安装清单
 
-这里的“其他电脑”指所有被 Mac 调度的科研/仿真电脑，例如实验室 GPU 机器、Windows 仿真机、Linux 服务器、办公室电脑。
+这里的“其他电脑”指所有被 Mac 主机调度的 Linux/Windows 科研电脑，例如实验室 GPU Linux 机器、Windows 仿真机、Linux 云服务器、办公室 Windows 工作站。
 
-结论：**其他电脑只装 worker 侧软件，不装控制中心。**
+结论：**Mac 是唯一主控入口；其他 Linux/Windows 电脑只装 worker 侧软件，不装控制中心。**
 
 ## 每台其他电脑必须安装
 
@@ -182,7 +182,9 @@ NVIDIA driver / CUDA，GPU 机器需要
 
 Agent 作为 Windows Service 常驻。
 
-### macOS 工作机
+### macOS 工作机，可选备用
+
+默认架构里 Mac 是主机/控制端，不是 worker。只有当你明确要把另一台 Mac 添加为 worker 时，才使用这一节。
 
 必须：
 

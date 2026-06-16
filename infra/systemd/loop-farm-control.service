@@ -10,10 +10,9 @@ Environment=LOOP_FARM_HOST=0.0.0.0
 Environment=LOOP_FARM_PORT=8787
 Environment=LOOP_FARM_DB=/var/lib/loop-farm/control.sqlite3
 Environment=LOOP_FARM_ADMIN_TOKEN=change-me
-ExecStart=/opt/loop-farm/.venv/bin/loop-farm-control
+ExecStart=/opt/loop-farm/.venv/bin/loop-farm-control --ui /opt/loop-farm/apps/control-ui --install-dir /opt/loop-farm/install
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-

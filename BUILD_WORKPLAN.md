@@ -8,11 +8,14 @@
 不要再横向选型，第一版就按这套做：
 
 ```text
-Mac 端：
+Mac 主机：
+  Control server
   Web Dashboard + Chat 输入框
+  farmctl CLI
   RustDesk 客户端
 
 控制节点：
+  默认就是 Mac 主机，后续可迁到长期在线服务器
   Tailscale
   Docker Compose
   FastAPI
@@ -23,6 +26,7 @@ Mac 端：
   可选 MeshCentral
 
 每台科研电脑：
+  Linux worker 或 Windows worker
   Tailscale
   RustDesk Client
   Python 3.11+
@@ -53,7 +57,7 @@ Mac Chat
 | 多机器终端/文件/远控后台 | MeshCentral | 可选直接用 |
 | Agent 任务消息、事件流、断线恢复 | NATS JetStream | 直接用，不自研 MQ |
 | 控制 API | FastAPI | 用框架写业务 |
-| Mac 控制台 | Next.js + shadcn/ui | 用框架写业务界面 |
+| Mac 控制台 | 轻量 HTML/CSS/JS，参考 EvoScientist-Studio | 第一版直接由 control server 托管 |
 | 控制节点部署 | Docker Compose | 直接用，不上 Kubernetes |
 | 科研自动化核心 | EvoScientist fork | 爆改，不从零写科研 Agent |
 
@@ -75,7 +79,7 @@ Mac Chat
 3. MeshCentral 的定位就是自托管的 Web 远程管理站点，安装 agent 后可以远程桌面、终端和文件管理，适合多机后台。
 4. NATS JetStream 提供消息持久化、重放、work queue 和 pull consumers，适合“agent 离线后恢复、任务不能丢、状态可回放”。
 5. EvoScientist 的公开论文路线是 Researcher Agent、Engineer Agent、Evolution Manager Agent 加持久记忆；这和你的“科研数据飞轮”高度一致。
-6. FastAPI 适合快速做 Python API，Next.js 适合快速做 Mac 浏览器控制台，Docker Compose 足够支撑第一版。
+6. control server 直接托管轻量 Web UI，和 EvoScientist-Studio 的 sidecar 模式一致；Docker Compose 后续用于长期部署。
 
 ## 2. 仓库规划
 

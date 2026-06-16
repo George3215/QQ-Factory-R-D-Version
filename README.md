@@ -14,7 +14,8 @@
 control/     最小控制中心 API，保存 worker、job、approval、audit
 agent/       EvoScientist worker wrapper 的最小外壳：注册、heartbeat、审批请求
 farmctl/     Mac 侧 CLI：创建 token、列 worker、创建 job、生成安装命令
-install/     Linux worker 一键安装脚本
+install/     Linux/Windows worker 一键安装脚本，macOS worker 为备用
+apps/        轻量控制台 UI，由 control server 直接托管
 infra/       Docker、Compose、systemd、cloud-init 模板
 examples/    示例机器清单、worker 配置、job payload
 tests/       最小单元测试
@@ -30,6 +31,7 @@ make smoke
 ```
 
 更详细的 Stage A 使用说明见 [QUICKSTART_STAGE_A.md](./QUICKSTART_STAGE_A.md)。
+一体化安装和三端 worker 安装流程见 [INSTALLATION.md](./INSTALLATION.md)。
 
 ## 1. 先给结论
 
@@ -142,7 +144,8 @@ flowchart LR
 最小可维护组合：
 
 ```text
-Mac:
+Mac 主机:
+  - Control server
   - 浏览器 Dashboard
   - 一个对话入口：CLI / Web Chat / 本地 Mac App
   - RustDesk 客户端
@@ -155,7 +158,7 @@ Mac:
   - 控制 API + Dashboard
   - RustDesk Server 或 MeshCentral
 
-每台工作机:
+每台 Linux/Windows 工作机:
   - Tailscale
   - RustDesk 或 MeshCentral Agent
   - 循环工程 agent

@@ -5,6 +5,8 @@ COPY pyproject.toml /app/
 COPY control /app/control
 COPY farmctl /app/farmctl
 COPY agent /app/agent
+COPY apps /app/apps
+COPY install /app/install
 
 RUN pip install --no-cache-dir .
 
@@ -16,5 +18,4 @@ ENV LOOP_FARM_ADMIN_TOKEN=change-me
 VOLUME ["/data"]
 EXPOSE 8787
 
-CMD ["loop-farm-control"]
-
+CMD ["loop-farm-control", "--ui", "apps/control-ui", "--install-dir", "install"]

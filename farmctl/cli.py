@@ -64,8 +64,104 @@ def bootstrap_shell_command(args: argparse.Namespace) -> str:
     return " ".join(parts)
 
 
+def worker_install_command(
+    platform: str,
+    control_url: str,
+    machine_name: str,
+    token: str,
+    install_base_url: str,
+    repo_url: str,
+    tailscale_auth_key: str,
+) -> str:
+    base = install_base_url.rstrip("/")
+    common = {
+        "control_url": shlex.quote(control_url),
+        "machine_name": shlex.quote(machine_name),
+        "token": shlex.quote(token),
+        "repo_url": shlex.quote(repo_url),
+        "tailscale_auth_key": shlex.quote(tailscale_auth_key),
+    }
+    if platform == "linux":
+        parts = [
+            "curl",
+            "-fsSL",
+            f"{base}/worker-linux.sh",
+            "|",
+            "sudo",
+            "bash",
+            "-s",
+            "--",
+            "--control-url",
+            common["control_url"],
+            "--bootstrap-token",
+            common["token"],
+            "--machine-name",
+            common["machine_name"],
+        ]
+        if repo_url:
+            parts.extend(["--repo-url", common["repo_url"]])
+        if tailscale_auth_key:
+            parts.extend(["--tailscale-auth-key", common["tailscale_auth_key"]])
+        return " ".join(parts)
+    if platform == "macos":
+        parts = [
+            "curl",
+            "-fsSL",
+            f"{base}/worker-macos.sh",
+            "|",
+            "bash",
+            "-s",
+            "--",
+            "--control-url",
+            common["control_url"],
+            "--bootstrap-token",
+            common["token"],
+            "--machine-name",
+            common["machine_name"],
+        ]
+        if repo_url:
+            parts.extend(["--repo-url", common["repo_url"]])
+        if tailscale_auth_key:
+            parts.extend(["--tailscale-auth-key", common["tailscale_auth_key"]])
+        return " ".join(parts)
+    if platform == "windows":
+        script_url = f"{base}/worker-windows.ps1"
+        ps_parts = [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            shlex.quote(
+                "& { "
+                f"$script = Join-Path $env:TEMP 'worker-windows.ps1'; "
+                f"Invoke-WebRequest -UseBasicParsing -Uri '{script_url}' -OutFile $script; "
+                f"& $script -ControlUrl '{control_url}' -BootstrapToken '{token}' -MachineName '{machine_name}'"
+                + (f" -RepoUrl '{repo_url}'" if repo_url else "")
+                + (f" -TailscaleAuthKey '{tailscale_auth_key}'" if tailscale_auth_key else "")
+                + " }"
+            ),
+        ]
+        return " ".join(ps_parts)
+    raise ValueError(f"unsupported platform: {platform}")
+
+
 def cmd_worker_bootstrap_command(args: argparse.Namespace) -> None:
     print(bootstrap_shell_command(args))
+
+
+def cmd_install_worker_command(args: argparse.Namespace) -> None:
+    print(
+        worker_install_command(
+            platform=args.platform,
+            control_url=args.control_url,
+            machine_name=args.machine_name,
+            token=args.token,
+            install_base_url=args.install_base_url,
+            repo_url=args.repo_url,
+            tailscale_auth_key=args.tailscale_auth_key,
+        )
+    )
 
 
 def cmd_workers_list(args: argparse.Namespace) -> None:
@@ -179,6 +275,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Git repo URL to clone on the worker. Leave empty when script is pre-bundled.",
     )
     bootstrap.set_defaults(func=cmd_worker_bootstrap_command)
+
+    install = sub.add_parser("install", help="Generate integrated install commands.")
+    install_sub = install.add_subparsers(dest="install_command", required=True)
+    install_worker = install_sub.add_parser(
+        "worker-command", help="Print a one-line worker installer command."
+    )
+    install_worker.add_argument("--platform", choices=["linux", "macos", "windows"], required=True)
+    install_worker.add_argument("--control-url", required=True)
+    install_worker.add_argument("--machine-name", required=True)
+    install_worker.add_argument("--token", required=True)
+    install_worker.add_argument(
+        "--install-base-url",
+        default="https://control.example.com/install",
+        help="Base URL serving worker-linux.sh, worker-macos.sh, and worker-windows.ps1.",
+    )
+    install_worker.add_argument("--repo-url", default="")
+    install_worker.add_argument("--tailscale-auth-key", default="")
+    install_worker.set_defaults(func=cmd_install_worker_command)
 
     jobs = sub.add_parser("jobs", help="Manage jobs.")
     jobs_sub = jobs.add_subparsers(dest="jobs_command", required=True)

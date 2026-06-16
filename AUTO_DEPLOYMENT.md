@@ -84,7 +84,7 @@ Mac
 | 机器类型 | 推荐方式 | 原因 |
 | --- | --- | --- |
 | 自己的 Linux 工作站 | install script + systemd | 最简单、稳定 |
-| 自己的 macOS 机器 | install script + launchd | 适合长期在线 Mac |
+| 额外 macOS 机器 | install script + launchd | 备用路径；默认 Mac 是主控，不作为 worker |
 | 自己的 Windows 机器 | PowerShell installer + Windows Service | Windows GUI/仿真软件常见 |
 | 普通云 CPU 服务器 | cloud-init + Ansible，可选 OpenTofu | 适合批量创建和销毁 |
 | GPU 云服务器 | Provider API + cloud-init/container image | 适合按需租赁，用完释放 |
