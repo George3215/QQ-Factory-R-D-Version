@@ -10,6 +10,7 @@ Worker 上的 Codex / Claude Code
   -> POST /api/reports
   -> Mac control server 写入 SQLite
   -> Mac Dashboard 的 Reports 页展示
+  -> Mac Dashboard 的 Chat 页按 worker 归档
   -> farmctl reports list 可查询
 ```
 
@@ -130,6 +131,7 @@ Web UI：
 
 ```text
 Reports
+Chat
 ```
 
 CLI：
@@ -156,6 +158,15 @@ python3 -m farmctl reports list \
   --control-url http://127.0.0.1:8787 \
   --admin-token dev-admin-token \
   --source claude_code
+```
+
+查看某台 worker 的对话线程：
+
+```bash
+python3 -m farmctl chat list \
+  --control-url http://127.0.0.1:8787 \
+  --admin-token dev-admin-token \
+  --worker-id wkr_xxx
 ```
 
 ## 7. Agent 和人类分工

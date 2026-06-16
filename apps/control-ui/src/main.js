@@ -6,6 +6,8 @@ const state = {
   approvals: [],
   events: [],
   reports: [],
+  chatMessages: [],
+  activeChatWorkerId: localStorage.getItem("loopFarmActiveChatWorker") || "",
   token: localStorage.getItem("loopFarmAdminToken") || "",
 };
 
@@ -13,6 +15,7 @@ const views = [
   ["overview", "OV", "Overview", "统一调度"],
   ["install", "IN", "Install", "多端安装"],
   ["workers", "WK", "Workers", "机器"],
+  ["chat", "CH", "Chat", "单机对话"],
   ["jobs", "JB", "Jobs", "任务"],
   ["approvals", "AP", "Approvals", "审批"],
   ["reports", "RP", "Reports", "Codex/Claude"],
@@ -72,18 +75,28 @@ async function refresh() {
     state.apiOnline = false;
   }
   if (state.token) {
-    const [workers, jobs, approvals, events, reports] = await Promise.allSettled([
+    const [workers, jobs, approvals, events, reports, chat] = await Promise.allSettled([
       api("/api/workers"),
       api("/api/jobs"),
       api("/api/approvals"),
       api("/api/job-events"),
       api("/api/reports"),
+      api("/api/chat?limit=500"),
     ]);
     if (workers.status === "fulfilled") state.workers = workers.value.workers || [];
     if (jobs.status === "fulfilled") state.jobs = jobs.value.jobs || [];
     if (approvals.status === "fulfilled") state.approvals = approvals.value.approvals || [];
     if (events.status === "fulfilled") state.events = events.value.events || [];
     if (reports.status === "fulfilled") state.reports = reports.value.reports || [];
+    if (chat.status === "fulfilled") state.chatMessages = chat.value.messages || [];
+    if (!state.activeChatWorkerId && state.workers[0]) {
+      state.activeChatWorkerId = state.workers[0].id;
+      localStorage.setItem("loopFarmActiveChatWorker", state.activeChatWorkerId);
+    }
+    if (state.activeChatWorkerId && !state.workers.some((worker) => worker.id === state.activeChatWorkerId)) {
+      state.activeChatWorkerId = state.workers[0]?.id || "";
+      localStorage.setItem("loopFarmActiveChatWorker", state.activeChatWorkerId);
+    }
   }
   updateShell();
   renderView();
@@ -211,6 +224,71 @@ function renderWorkers() {
   `).join("") || "<p>No workers.</p>");
 }
 
+function renderChat() {
+  const activeWorker = state.workers.find((worker) => worker.id === state.activeChatWorkerId) || state.workers[0];
+  if (activeWorker && activeWorker.id !== state.activeChatWorkerId) {
+    state.activeChatWorkerId = activeWorker.id;
+    localStorage.setItem("loopFarmActiveChatWorker", state.activeChatWorkerId);
+  }
+  const messages = activeWorker
+    ? state.chatMessages.filter((message) => message.worker_id === activeWorker.id)
+    : [];
+  viewHost.innerHTML = `
+    <div class="chat-layout">
+      <section class="panel chat-workers">
+        <div class="panel-head">
+          <h2>Worker Threads</h2>
+          <span class="panel-badge">${state.workers.length}</span>
+        </div>
+        <div class="thread-list">
+          ${state.workers.map((worker) => {
+            const count = state.chatMessages.filter((message) => message.worker_id === worker.id).length;
+            return `
+              <button class="thread-item ${worker.id === state.activeChatWorkerId ? "active" : ""}" data-chat-worker="${escapeHtml(worker.id)}">
+                <strong>${escapeHtml(worker.machine_name)}</strong>
+                <small>${escapeHtml(worker.os)} · ${count} messages</small>
+              </button>
+            `;
+          }).join("") || "<p>No workers yet.</p>"}
+        </div>
+      </section>
+      <section class="panel chat-panel">
+        <div class="panel-head">
+          <h2>${activeWorker ? escapeHtml(activeWorker.machine_name) : "No Worker"}</h2>
+          ${activeWorker ? token("status", activeWorker.status) : ""}
+        </div>
+        <div class="message-list" id="chatMessageList">
+          ${messages.map((message) => `
+            <div class="message-item ${message.role === "human" ? "human" : "agent"}">
+              <div class="message-meta">
+                <strong>${escapeHtml(message.author || message.role)}</strong>
+                <small>${escapeHtml(message.role)} · ${escapeHtml(message.id)}</small>
+              </div>
+              <p>${escapeHtml(message.content)}</p>
+              ${Object.keys(message.payload || {}).length ? `<small>${escapeHtml(JSON.stringify(message.payload))}</small>` : ""}
+            </div>
+          `).join("") || "<p>No messages for this worker yet.</p>"}
+        </div>
+        <div class="chat-composer">
+          <textarea id="chatInput" placeholder="Send a note or instruction to this worker thread"${activeWorker ? "" : " disabled"}></textarea>
+          <button class="primary" id="sendChat" ${activeWorker ? "" : "disabled"}>Send</button>
+        </div>
+      </section>
+    </div>
+  `;
+  viewHost.querySelectorAll("[data-chat-worker]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeChatWorkerId = button.dataset.chatWorker;
+      localStorage.setItem("loopFarmActiveChatWorker", state.activeChatWorkerId);
+      renderChat();
+    });
+  });
+  const sendButton = document.querySelector("#sendChat");
+  if (sendButton) sendButton.addEventListener("click", sendChatMessage);
+  const list = document.querySelector("#chatMessageList");
+  if (list) list.scrollTop = list.scrollHeight;
+}
+
 function renderJobs() {
   viewHost.innerHTML = `
     <div class="grid two">
@@ -284,6 +362,7 @@ function renderView() {
   if (state.view === "overview") renderOverview();
   if (state.view === "install") renderInstall();
   if (state.view === "workers") renderWorkers();
+  if (state.view === "chat") renderChat();
   if (state.view === "jobs") renderJobs();
   if (state.view === "approvals") renderApprovals();
   if (state.view === "reports") renderReports();
@@ -340,6 +419,24 @@ async function createSmokeJob() {
         : { message },
     }),
   });
+  await refresh();
+}
+
+async function sendChatMessage() {
+  const input = document.querySelector("#chatInput");
+  const content = input?.value.trim() || "";
+  if (!state.activeChatWorkerId || !content) return;
+  await api("/api/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      worker_id: state.activeChatWorkerId,
+      role: "human",
+      author: "mac",
+      content,
+      payload: { source: "control-ui" },
+    }),
+  });
+  if (input) input.value = "";
   await refresh();
 }
 

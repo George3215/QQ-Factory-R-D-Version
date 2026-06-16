@@ -45,6 +45,7 @@ Mac 对话入口
   -> agent report 或 loop-farm-reporter skill
   -> Mac 控制中心 /api/reports
   -> Mac Dashboard Reports 页
+  -> 对应 worker 的 Chat 对话框
 ```
 
 ## 你在 Mac 上看到什么

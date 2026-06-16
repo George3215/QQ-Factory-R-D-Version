@@ -57,6 +57,18 @@ class ControlHandler(BaseHTTPRequestHandler):
                         )
                     }
                 )
+            elif path == "/api/chat":
+                self.require_admin()
+                query = parse_qs(parsed.query)
+                worker_id = query.get("worker_id", [None])[0]
+                limit = int(query.get("limit", ["200"])[0])
+                self.send_json(
+                    {
+                        "messages": self.store.list_chat_messages(
+                            worker_id=worker_id, limit=limit
+                        )
+                    }
+                )
             elif path == "/api/approvals":
                 self.require_admin()
                 self.send_json({"approvals": self.store.list_approvals()})
@@ -113,6 +125,11 @@ class ControlHandler(BaseHTTPRequestHandler):
             elif path == "/api/reports":
                 self.send_json(
                     self.store.create_worker_report(body), status=HTTPStatus.CREATED
+                )
+            elif path == "/api/chat":
+                self.require_admin()
+                self.send_json(
+                    self.store.create_chat_message(body), status=HTTPStatus.CREATED
                 )
             elif path == "/api/approvals":
                 self.send_json(

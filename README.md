@@ -20,11 +20,11 @@ VPS / Tailscale / RustDesk = 网络与远控兜底，不是第二个主控
 当前代码结构：
 
 ```text
-control/     最小控制中心 API，保存 worker、job、report、approval、audit
+control/     最小控制中心 API，保存 worker、job、report、chat、approval、audit
 agent/       EvoScientist worker wrapper 的最小外壳：注册、heartbeat、上报、审批请求
-farmctl/     Mac 侧 CLI：创建 token、列 worker、创建 job、查看 report、生成安装命令
+farmctl/     Mac 侧 CLI：创建 token、列 worker、创建 job、查看 report/chat、生成安装命令
 install/     Linux/Windows worker 一键安装脚本，自动复制上报 skill；macOS worker 为备用
-apps/        轻量控制台 UI，由 control server 直接托管
+apps/        轻量控制台 UI，由 control server 直接托管，支持按 worker 切换对话框
 infra/       Docker、Compose、systemd、cloud-init 模板
 skills/      Codex skill：把 Codex/Claude Code 状态推回 Mac
 examples/    示例机器清单、worker 配置、job payload

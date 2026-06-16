@@ -392,6 +392,98 @@ h3 {
   margin-top: 3px;
 }
 
+.chat-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 560px;
+}
+
+.chat-workers,
+.chat-panel {
+  display: grid;
+  min-height: 560px;
+}
+
+.chat-workers {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.chat-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.thread-list,
+.message-list {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+}
+
+.thread-list {
+  align-content: start;
+}
+
+.thread-item {
+  display: grid;
+  width: 100%;
+  height: auto;
+  gap: 4px;
+  padding: 10px;
+  text-align: left;
+}
+
+.thread-item.active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.message-list {
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px;
+}
+
+.message-item {
+  display: grid;
+  max-width: 78%;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px;
+}
+
+.message-item.human {
+  justify-self: end;
+  border-color: var(--blue);
+  background: #eef4ff;
+}
+
+.message-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.message-item p,
+.message-item small {
+  white-space: pre-wrap;
+}
+
+.chat-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.chat-composer textarea {
+  min-height: 58px;
+}
+
 @media (max-width: 1100px) {
   body {
     overflow: auto;
@@ -410,8 +502,13 @@ h3 {
 
   .grid.two,
   .grid.three,
-  .form-grid {
+  .form-grid,
+  .chat-layout,
+  .chat-composer {
     grid-template-columns: 1fr;
   }
-}
 
+  .message-item {
+    max-width: 100%;
+  }
+}

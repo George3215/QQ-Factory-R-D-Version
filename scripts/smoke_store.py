@@ -85,12 +85,23 @@ def main() -> None:
             }
         )
         reports = store.list_worker_reports(source="codex")
+        message = store.create_chat_message(
+            {
+                "worker_id": worker["id"],
+                "role": "human",
+                "author": "mac",
+                "content": "Smoke chat reply",
+                "payload": {"ok": True},
+            }
+        )
+        messages = store.list_chat_messages(worker_id=worker["id"])
 
         print("smoke ok")
         print(f"worker={worker['id']}")
         print(f"job={job['id']} claimed={claimed['status']} completed={completed['status']}")
         print(f"approval={approval['id']}")
         print(f"report={report['id']} reports={len(reports)}")
+        print(f"chat_message={message['id']} messages={len(messages)}")
         store.close()
 
 

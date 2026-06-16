@@ -252,6 +252,44 @@ def cmd_reports_list(args: argparse.Namespace) -> None:
     print_json(result)
 
 
+def cmd_chat_list(args: argparse.Namespace) -> None:
+    query = {}
+    if args.worker_id:
+        query["worker_id"] = args.worker_id
+    if args.limit:
+        query["limit"] = args.limit
+    path = "/api/chat"
+    if query:
+        path = f"{path}?{urlencode(query)}"
+    result = request_json(
+        "GET",
+        control_url_from(args),
+        path,
+        admin_token=admin_token_from(args),
+    )
+    print_json(result)
+
+
+def cmd_chat_send(args: argparse.Namespace) -> None:
+    payload_body = {}
+    if args.payload_json:
+        payload_body = json.loads(args.payload_json)
+    result = request_json(
+        "POST",
+        control_url_from(args),
+        "/api/chat",
+        payload={
+            "worker_id": args.worker_id,
+            "role": "human",
+            "author": args.author,
+            "content": args.content,
+            "payload": payload_body,
+        },
+        admin_token=admin_token_from(args),
+    )
+    print_json(result)
+
+
 def add_common_control_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--control-url", default=None, help="Control API base URL.")
     parser.add_argument("--admin-token", default=None, help="Control API admin token.")
@@ -352,6 +390,22 @@ def build_parser() -> argparse.ArgumentParser:
     reports_list.add_argument("--source", choices=["agent", "codex", "claude_code", "system", "human"], default=None)
     reports_list.add_argument("--limit", type=int, default=200)
     reports_list.set_defaults(func=cmd_reports_list)
+
+    chat = sub.add_parser("chat", help="Per-worker conversation boxes.")
+    chat_sub = chat.add_subparsers(dest="chat_command", required=True)
+    chat_list = chat_sub.add_parser("list", help="List chat messages.")
+    add_common_control_args(chat_list)
+    chat_list.add_argument("--worker-id", default=None)
+    chat_list.add_argument("--limit", type=int, default=200)
+    chat_list.set_defaults(func=cmd_chat_list)
+
+    chat_send = chat_sub.add_parser("send", help="Send a human chat message to a worker thread.")
+    add_common_control_args(chat_send)
+    chat_send.add_argument("--worker-id", required=True)
+    chat_send.add_argument("--content", required=True)
+    chat_send.add_argument("--author", default="human")
+    chat_send.add_argument("--payload-json", default="{}")
+    chat_send.set_defaults(func=cmd_chat_send)
 
     return parser
 

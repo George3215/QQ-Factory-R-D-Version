@@ -35,6 +35,7 @@
 
 - [x] Minimal Web Dashboard
 - [x] Machines page
+- [x] Per-worker Chat page
 - [x] Jobs page
 - [x] Approvals page
 - [x] Reports page

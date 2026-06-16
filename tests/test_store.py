@@ -224,6 +224,69 @@ class StoreTest(unittest.TestCase):
                 }
             )
 
+    def test_worker_chat_threads_are_per_worker(self) -> None:
+        first_bootstrap = self.store.create_bootstrap_token("lab-gpu-01", ttl_seconds=60)
+        second_bootstrap = self.store.create_bootstrap_token("win-lab-01", ttl_seconds=60)
+        first = self.store.register_worker(
+            {
+                "token": first_bootstrap["token"],
+                "machine_name": "lab-gpu-01",
+                "hostname": "lab-gpu-01.local",
+                "os": "linux",
+                "tags": [],
+                "metadata": {},
+            }
+        )
+        second = self.store.register_worker(
+            {
+                "token": second_bootstrap["token"],
+                "machine_name": "win-lab-01",
+                "hostname": "win-lab-01.local",
+                "os": "windows",
+                "tags": [],
+                "metadata": {},
+            }
+        )
+
+        self.store.create_worker_report(
+            {
+                "worker_id": first["id"],
+                "agent_token": first["agent_token"],
+                "source": "codex",
+                "level": "needs_human",
+                "title": "Boundary decision",
+                "message": "Need Mac-side input.",
+                "payload": {"risk": "L4"},
+            }
+        )
+        human = self.store.create_chat_message(
+            {
+                "worker_id": first["id"],
+                "role": "human",
+                "author": "mac",
+                "content": "Use the smaller range.",
+                "payload": {"decision": "shrink_range"},
+            }
+        )
+        self.store.create_chat_message(
+            {
+                "worker_id": second["id"],
+                "role": "human",
+                "author": "mac",
+                "content": "Stand by.",
+            }
+        )
+
+        first_messages = self.store.list_chat_messages(worker_id=first["id"])
+        second_messages = self.store.list_chat_messages(worker_id=second["id"])
+
+        self.assertEqual([message["role"] for message in first_messages], ["codex", "human"])
+        self.assertIn("Boundary decision", first_messages[0]["content"])
+        self.assertEqual(first_messages[1]["id"], human["id"])
+        self.assertEqual(first_messages[1]["payload"]["decision"], "shrink_range")
+        self.assertEqual(len(second_messages), 1)
+        self.assertEqual(second_messages[0]["content"], "Stand by.")
+
 
 if __name__ == "__main__":
     unittest.main()

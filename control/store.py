@@ -98,6 +98,16 @@ class Store:
                 created_at integer not null
             );
 
+            create table if not exists chat_messages (
+                id text primary key,
+                worker_id text not null,
+                role text not null,
+                author text not null,
+                content text not null,
+                payload_json text not null,
+                created_at integer not null
+            );
+
             create table if not exists audit_logs (
                 id text primary key,
                 actor_type text not null,
@@ -210,6 +220,14 @@ class Store:
             raise ValueError("worker not found")
         if row["agent_token"] != agent_token:
             raise ValueError("invalid agent token")
+        return row
+
+    def require_worker_exists(self, worker_id: str) -> sqlite3.Row:
+        row = self.conn.execute(
+            "select id from workers where id = ?", (worker_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("worker not found")
         return row
 
     def heartbeat(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -656,6 +674,29 @@ class Store:
                     ts,
                 ),
             )
+            self.conn.execute(
+                """
+                insert into chat_messages
+                (id, worker_id, role, author, content, payload_json, created_at)
+                values (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_id("msg"),
+                    worker_id,
+                    source,
+                    source,
+                    "\n".join(part for part in [row["title"], row["message"]] if part),
+                    json.dumps(
+                        {
+                            "kind": "worker_report",
+                            "report_id": report_id,
+                            "level": level,
+                            "payload": row["payload"],
+                        }
+                    ),
+                    ts,
+                ),
+            )
             self.audit("worker", worker_id, "worker_report.create", row)
         return row
 
@@ -690,6 +731,83 @@ class Store:
                 "level": row["level"],
                 "title": row["title"],
                 "message": row["message"],
+                "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def create_chat_message(self, payload: dict[str, Any]) -> dict[str, Any]:
+        worker_id = str(payload["worker_id"])
+        self.require_worker_exists(worker_id)
+        role = str(payload.get("role") or "human")
+        if role not in {"human", "agent", "codex", "claude_code", "system"}:
+            raise ValueError("role must be human, agent, codex, claude_code, or system")
+        message_id = new_id("msg")
+        ts = now_ts()
+        row = {
+            "id": message_id,
+            "worker_id": worker_id,
+            "role": role,
+            "author": str(payload.get("author") or role),
+            "content": str(payload.get("content") or ""),
+            "payload": payload.get("payload") or {},
+            "created_at": ts,
+        }
+        if not row["content"]:
+            raise ValueError("content is required")
+        with self.conn:
+            self.conn.execute(
+                """
+                insert into chat_messages
+                (id, worker_id, role, author, content, payload_json, created_at)
+                values (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    message_id,
+                    worker_id,
+                    row["role"],
+                    row["author"],
+                    row["content"],
+                    json.dumps(row["payload"]),
+                    ts,
+                ),
+            )
+            self.audit("admin", "control", "chat_message.create", row)
+        return row
+
+    def list_chat_messages(
+        self, worker_id: str | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        limit = max(1, min(limit, 1000))
+        if worker_id:
+            rows = self.conn.execute(
+                """
+                select id, worker_id, role, author, content, payload_json, created_at
+                from chat_messages
+                where worker_id = ?
+                order by created_at asc
+                limit ?
+                """,
+                (worker_id, limit),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """
+                select id, worker_id, role, author, content, payload_json, created_at
+                from chat_messages
+                order by created_at asc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "worker_id": row["worker_id"],
+                "role": row["role"],
+                "author": row["author"],
+                "content": row["content"],
                 "payload": json.loads(row["payload_json"]),
                 "created_at": row["created_at"],
             }
