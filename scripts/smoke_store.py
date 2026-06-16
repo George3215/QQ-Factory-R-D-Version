@@ -38,6 +38,32 @@ def main() -> None:
             payload={"message": "hello loop farm"},
             target_worker_id=worker["id"],
         )
+        claimed = store.claim_job(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+            }
+        )["job"]
+        store.record_job_event(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+                "job_id": job["id"],
+                "event_type": "artifact",
+                "message": "smoke artifact",
+                "payload": {"path": "result.json"},
+            }
+        )
+        completed = store.complete_job(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+                "job_id": job["id"],
+                "status": "succeeded",
+                "message": "smoke complete",
+                "payload": {"ok": True},
+            }
+        )
         approval = store.create_approval(
             {
                 "worker_id": worker["id"],
@@ -50,8 +76,9 @@ def main() -> None:
 
         print("smoke ok")
         print(f"worker={worker['id']}")
-        print(f"job={job['id']}")
+        print(f"job={job['id']} claimed={claimed['status']} completed={completed['status']}")
         print(f"approval={approval['id']}")
+        store.close()
 
 
 if __name__ == "__main__":

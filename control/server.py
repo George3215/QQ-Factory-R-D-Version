@@ -6,7 +6,7 @@ import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .store import Store
 
@@ -26,7 +26,8 @@ class ControlHandler(BaseHTTPRequestHandler):
         return self.server.admin_token  # type: ignore[attr-defined]
 
     def do_GET(self) -> None:
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         try:
             if path == "/health":
                 self.send_json({"ok": True, "service": "loop-farm-control"})
@@ -36,6 +37,11 @@ class ControlHandler(BaseHTTPRequestHandler):
             elif path == "/api/jobs":
                 self.require_admin()
                 self.send_json({"jobs": self.store.list_jobs()})
+            elif path == "/api/job-events":
+                self.require_admin()
+                query = parse_qs(parsed.query)
+                job_id = query.get("job_id", [None])[0]
+                self.send_json({"events": self.store.list_job_events(job_id=job_id)})
             elif path == "/api/approvals":
                 self.require_admin()
                 self.send_json({"approvals": self.store.list_approvals()})
@@ -77,10 +83,21 @@ class ControlHandler(BaseHTTPRequestHandler):
                     target_worker_id=body.get("target_worker_id"),
                 )
                 self.send_json(job, status=HTTPStatus.CREATED)
+            elif path == "/api/jobs/claim":
+                self.send_json(self.store.claim_job(body))
+            elif path == "/api/jobs/events":
+                self.send_json(
+                    self.store.record_job_event(body), status=HTTPStatus.CREATED
+                )
+            elif path == "/api/jobs/complete":
+                self.send_json(self.store.complete_job(body))
             elif path == "/api/approvals":
                 self.send_json(
                     self.store.create_approval(body), status=HTTPStatus.CREATED
                 )
+            elif path == "/api/approvals/resolve":
+                self.require_admin()
+                self.send_json(self.store.resolve_approval(body))
             else:
                 self.send_error_json(HTTPStatus.NOT_FOUND, "not found")
         except Exception as exc:
@@ -160,4 +177,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

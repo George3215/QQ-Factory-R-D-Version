@@ -14,6 +14,7 @@ class StoreTest(unittest.TestCase):
         self.store = Store(self.db_path)
 
     def tearDown(self) -> None:
+        self.store.close()
         self.tmpdir.cleanup()
 
     def test_worker_registration_and_heartbeat(self) -> None:
@@ -93,7 +94,78 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(len(self.store.list_jobs()), 1)
         self.assertEqual(len(self.store.list_approvals()), 1)
 
+        resolved = self.store.resolve_approval(
+            {
+                "approval_id": approval["id"],
+                "decision": "approved",
+                "comment": "test approval",
+            }
+        )
+        self.assertEqual(resolved["status"], "approved")
+        with self.assertRaises(ValueError):
+            self.store.resolve_approval(
+                {
+                    "approval_id": approval["id"],
+                    "decision": "rejected",
+                    "comment": "should fail",
+                }
+            )
+
+    def test_worker_can_claim_and_complete_job(self) -> None:
+        bootstrap = self.store.create_bootstrap_token("lab-gpu-01", ttl_seconds=60)
+        worker = self.store.register_worker(
+            {
+                "token": bootstrap["token"],
+                "machine_name": "lab-gpu-01",
+                "hostname": "lab-gpu-01.local",
+                "os": "linux",
+                "tags": [],
+                "metadata": {},
+            }
+        )
+        queued = self.store.create_job(
+            recipe="smoke_test",
+            payload={"message": "hello"},
+            target_worker_id=None,
+        )
+
+        claimed = self.store.claim_job(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+            }
+        )["job"]
+
+        self.assertEqual(claimed["id"], queued["id"])
+        self.assertEqual(claimed["status"], "running")
+        self.assertEqual(claimed["target_worker_id"], worker["id"])
+
+        self.store.record_job_event(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+                "job_id": queued["id"],
+                "event_type": "artifact",
+                "message": "wrote result",
+                "payload": {"path": "result.json"},
+            }
+        )
+        completed = self.store.complete_job(
+            {
+                "worker_id": worker["id"],
+                "agent_token": worker["agent_token"],
+                "job_id": queued["id"],
+                "status": "succeeded",
+                "message": "done",
+                "payload": {"ok": True},
+            }
+        )
+
+        self.assertEqual(completed["status"], "succeeded")
+        events = self.store.list_job_events(job_id=queued["id"])
+        event_types = [event["event_type"] for event in events]
+        self.assertEqual(event_types, ["claimed", "artifact", "succeeded"])
+
 
 if __name__ == "__main__":
     unittest.main()
-

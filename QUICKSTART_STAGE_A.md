@@ -90,6 +90,12 @@ python3 -m agent heartbeat --config data/lab-gpu-01-agent.json
 python3 -m agent daemon --config data/lab-gpu-01-agent.json
 ```
 
+执行一个 agent cycle：
+
+```bash
+python3 -m agent run-once --config data/lab-gpu-01-agent.json
+```
+
 真实 Linux 安装脚本会自动创建 systemd 服务：
 
 ```bash
@@ -115,7 +121,22 @@ python3 -m farmctl jobs create \
   --payload-json '{"message":"hello loop farm"}'
 ```
 
-当前 job 只会入库，还不会被 agent 拉取执行。下一阶段会把 job receiver 接到 EvoScientist runner。
+让 agent 领取并执行 job：
+
+```bash
+python3 -m agent run-once --config data/lab-gpu-01-agent.json
+```
+
+查看 job events：
+
+```bash
+python3 -m farmctl jobs events \
+  --control-url http://127.0.0.1:8787 \
+  --admin-token dev-admin-token \
+  --job-id job_xxx
+```
+
+当前 `smoke_test` 已经会被 agent 拉取执行；下一阶段会把 runner 接到 EvoScientist。
 
 ## 7. 创建测试审批请求
 
@@ -134,16 +155,25 @@ python3 -m farmctl approvals list \
   --admin-token dev-admin-token
 ```
 
+Mac 批准或拒绝：
+
+```bash
+python3 -m farmctl approvals resolve \
+  --control-url http://127.0.0.1:8787 \
+  --admin-token dev-admin-token \
+  --approval-id apr_xxx \
+  --decision reject \
+  --comment "not allowed in smoke test"
+```
+
 ## 8. 下一步
 
 下一阶段要实现：
 
 ```text
-1. Agent 拉取 queued job
-2. job_runner 调 EvoScientist
-3. job_events 上报日志摘要
-4. Approvals 支持批准/拒绝
-5. Linux installer 支持 Tailscale auth key 自动入网
-6. RunPod/云服务器复用同一套 bootstrap 流程
+1. job_runner 调 EvoScientist
+2. blocked job 根据 approval decision 继续/停止
+3. artifact uploader
+4. Linux installer 支持 Tailscale auth key 自动入网
+5. RunPod/云服务器复用同一套 bootstrap 流程
 ```
-

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -27,6 +28,7 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self.lock = threading.Lock()
         self.init_schema()
 
     def init_schema(self) -> None:
@@ -96,6 +98,9 @@ class Store:
             """
         )
         self.conn.commit()
+
+    def close(self) -> None:
+        self.conn.close()
 
     def create_bootstrap_token(
         self, machine_name: str, role: str = "worker", ttl_seconds: int = 3600
@@ -282,6 +287,17 @@ class Store:
             self.audit("admin", "control", "job.create", row)
         return row
 
+    def job_from_row(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "target_worker_id": row["target_worker_id"],
+            "recipe": row["recipe"],
+            "payload": json.loads(row["payload_json"]),
+            "status": row["status"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
     def list_jobs(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             """
@@ -290,15 +306,192 @@ class Store:
             order by created_at desc
             """
         ).fetchall()
+        return [self.job_from_row(row) for row in rows]
+
+    def claim_job(self, payload: dict[str, Any]) -> dict[str, Any]:
+        worker_id = str(payload["worker_id"])
+        agent_token = str(payload["agent_token"])
+        self.verify_worker(worker_id, agent_token)
+        ts = now_ts()
+        with self.lock:
+            row = self.conn.execute(
+                """
+                select id, target_worker_id, recipe, payload_json, status, created_at, updated_at
+                from jobs
+                where status = 'queued'
+                  and (target_worker_id is null or target_worker_id = ?)
+                order by created_at asc
+                limit 1
+                """,
+                (worker_id,),
+            ).fetchone()
+            if row is None:
+                return {"job": None}
+            with self.conn:
+                cursor = self.conn.execute(
+                    """
+                    update jobs
+                    set status = 'running', target_worker_id = ?, updated_at = ?
+                    where id = ? and status = 'queued'
+                    """,
+                    (worker_id, ts, row["id"]),
+                )
+                if cursor.rowcount != 1:
+                    return {"job": None}
+                self.conn.execute(
+                    """
+                    insert into job_events
+                    (id, job_id, worker_id, event_type, message, payload_json, created_at)
+                    values (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        new_id("evt"),
+                        row["id"],
+                        worker_id,
+                        "claimed",
+                        "job claimed by worker",
+                        json.dumps({}),
+                        ts,
+                    ),
+                )
+        claimed = self.conn.execute(
+            """
+            select id, target_worker_id, recipe, payload_json, status, created_at, updated_at
+            from jobs
+            where id = ?
+            """,
+            (row["id"],),
+        ).fetchone()
+        return {"job": self.job_from_row(claimed)}
+
+    def record_job_event(self, payload: dict[str, Any]) -> dict[str, Any]:
+        worker_id = str(payload["worker_id"])
+        agent_token = str(payload["agent_token"])
+        job_id = str(payload["job_id"])
+        self.verify_worker(worker_id, agent_token)
+        job = self.conn.execute(
+            "select target_worker_id from jobs where id = ?", (job_id,)
+        ).fetchone()
+        if job is None:
+            raise ValueError("job not found")
+        if job["target_worker_id"] != worker_id:
+            raise ValueError("job is not assigned to this worker")
+        event_id = new_id("evt")
+        ts = now_ts()
+        row = {
+            "id": event_id,
+            "job_id": job_id,
+            "worker_id": worker_id,
+            "event_type": str(payload["event_type"]),
+            "message": str(payload.get("message") or ""),
+            "payload": payload.get("payload") or {},
+            "created_at": ts,
+        }
+        with self.conn:
+            self.conn.execute(
+                """
+                insert into job_events
+                (id, job_id, worker_id, event_type, message, payload_json, created_at)
+                values (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    job_id,
+                    worker_id,
+                    row["event_type"],
+                    row["message"],
+                    json.dumps(row["payload"]),
+                    ts,
+                ),
+            )
+        return row
+
+    def complete_job(self, payload: dict[str, Any]) -> dict[str, Any]:
+        worker_id = str(payload["worker_id"])
+        agent_token = str(payload["agent_token"])
+        job_id = str(payload["job_id"])
+        status = str(payload["status"])
+        if status not in {"succeeded", "failed", "blocked"}:
+            raise ValueError("status must be succeeded, failed, or blocked")
+        self.verify_worker(worker_id, agent_token)
+        job = self.conn.execute(
+            "select target_worker_id from jobs where id = ?", (job_id,)
+        ).fetchone()
+        if job is None:
+            raise ValueError("job not found")
+        if job["target_worker_id"] != worker_id:
+            raise ValueError("job is not assigned to this worker")
+        ts = now_ts()
+        with self.conn:
+            self.conn.execute(
+                "update jobs set status = ?, updated_at = ? where id = ?",
+                (status, ts, job_id),
+            )
+            self.conn.execute(
+                """
+                insert into job_events
+                (id, job_id, worker_id, event_type, message, payload_json, created_at)
+                values (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_id("evt"),
+                    job_id,
+                    worker_id,
+                    status,
+                    str(payload.get("message") or status),
+                    json.dumps(payload.get("payload") or {}),
+                    ts,
+                ),
+            )
+            self.audit(
+                "worker",
+                worker_id,
+                f"job.{status}",
+                {
+                    "job_id": job_id,
+                    "status": status,
+                    "message": payload.get("message") or status,
+                },
+            )
+        row = self.conn.execute(
+            """
+            select id, target_worker_id, recipe, payload_json, status, created_at, updated_at
+            from jobs
+            where id = ?
+            """,
+            (job_id,),
+        ).fetchone()
+        return self.job_from_row(row)
+
+    def list_job_events(self, job_id: str | None = None) -> list[dict[str, Any]]:
+        if job_id:
+            rows = self.conn.execute(
+                """
+                select id, job_id, worker_id, event_type, message, payload_json, created_at
+                from job_events
+                where job_id = ?
+                order by created_at asc
+                """,
+                (job_id,),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """
+                select id, job_id, worker_id, event_type, message, payload_json, created_at
+                from job_events
+                order by created_at desc
+                limit 200
+                """
+            ).fetchall()
         return [
             {
                 "id": row["id"],
-                "target_worker_id": row["target_worker_id"],
-                "recipe": row["recipe"],
+                "job_id": row["job_id"],
+                "worker_id": row["worker_id"],
+                "event_type": row["event_type"],
+                "message": row["message"],
                 "payload": json.loads(row["payload_json"]),
-                "status": row["status"],
                 "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
             }
             for row in rows
         ]
@@ -360,6 +553,58 @@ class Store:
             for row in rows
         ]
 
+    def resolve_approval(self, payload: dict[str, Any]) -> dict[str, Any]:
+        approval_id = str(payload["approval_id"])
+        decision = str(payload["decision"])
+        if decision not in {"approved", "rejected"}:
+            raise ValueError("decision must be approved or rejected")
+        row = self.conn.execute(
+            """
+            select id, worker_id, job_id, title, body_json, status, created_at, resolved_at
+            from approval_requests
+            where id = ?
+            """,
+            (approval_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError("approval not found")
+        if row["status"] != "pending":
+            raise ValueError("approval already resolved")
+        ts = now_ts()
+        audit_payload = {
+            "approval_id": approval_id,
+            "decision": decision,
+            "comment": payload.get("comment") or "",
+        }
+        with self.conn:
+            self.conn.execute(
+                """
+                update approval_requests
+                set status = ?, resolved_at = ?
+                where id = ?
+                """,
+                (decision, ts, approval_id),
+            )
+            self.audit("admin", "control", "approval.resolve", audit_payload)
+        resolved = self.conn.execute(
+            """
+            select id, worker_id, job_id, title, body_json, status, created_at, resolved_at
+            from approval_requests
+            where id = ?
+            """,
+            (approval_id,),
+        ).fetchone()
+        return {
+            "id": resolved["id"],
+            "worker_id": resolved["worker_id"],
+            "job_id": resolved["job_id"],
+            "title": resolved["title"],
+            "body": json.loads(resolved["body_json"]),
+            "status": resolved["status"],
+            "created_at": resolved["created_at"],
+            "resolved_at": resolved["resolved_at"],
+        }
+
     def audit(
         self, actor_type: str, actor_id: str, action: str, payload: dict[str, Any]
     ) -> None:
@@ -378,4 +623,3 @@ class Store:
                 now_ts(),
             ),
         )
-

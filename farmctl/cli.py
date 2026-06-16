@@ -96,11 +96,40 @@ def cmd_jobs_create(args: argparse.Namespace) -> None:
     print_json(result)
 
 
+def cmd_jobs_events(args: argparse.Namespace) -> None:
+    path = "/api/job-events"
+    if args.job_id:
+        path = f"{path}?job_id={args.job_id}"
+    result = request_json(
+        "GET",
+        control_url_from(args),
+        path,
+        admin_token=admin_token_from(args),
+    )
+    print_json(result)
+
+
 def cmd_approvals_list(args: argparse.Namespace) -> None:
     result = request_json(
         "GET",
         control_url_from(args),
         "/api/approvals",
+        admin_token=admin_token_from(args),
+    )
+    print_json(result)
+
+
+def cmd_approvals_resolve(args: argparse.Namespace) -> None:
+    decision = "approved" if args.decision == "approve" else "rejected"
+    result = request_json(
+        "POST",
+        control_url_from(args),
+        "/api/approvals/resolve",
+        payload={
+            "approval_id": args.approval_id,
+            "decision": decision,
+            "comment": args.comment,
+        },
         admin_token=admin_token_from(args),
     )
     print_json(result)
@@ -160,11 +189,25 @@ def build_parser() -> argparse.ArgumentParser:
     job_create.add_argument("--payload-json", default="{}")
     job_create.set_defaults(func=cmd_jobs_create)
 
+    job_events = jobs_sub.add_parser("events", help="List job events.")
+    add_common_control_args(job_events)
+    job_events.add_argument("--job-id", default=None)
+    job_events.set_defaults(func=cmd_jobs_events)
+
     approvals = sub.add_parser("approvals", help="Manage approval requests.")
     approvals_sub = approvals.add_subparsers(dest="approvals_command", required=True)
     approvals_list = approvals_sub.add_parser("list", help="List approval requests.")
     add_common_control_args(approvals_list)
     approvals_list.set_defaults(func=cmd_approvals_list)
+
+    approvals_resolve = approvals_sub.add_parser(
+        "resolve", help="Approve or reject an approval request."
+    )
+    add_common_control_args(approvals_resolve)
+    approvals_resolve.add_argument("--approval-id", required=True)
+    approvals_resolve.add_argument("--decision", choices=["approve", "reject"], required=True)
+    approvals_resolve.add_argument("--comment", default="")
+    approvals_resolve.set_defaults(func=cmd_approvals_resolve)
 
     return parser
 
@@ -181,4 +224,3 @@ def main(argv: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-

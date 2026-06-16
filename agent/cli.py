@@ -13,6 +13,7 @@ from . import __version__
 from .config import DEFAULT_CONFIG_PATH, AgentConfig
 from .http import post_json
 from .inventory import collect_inventory, collect_metrics, self_test
+from .runner import run_job
 
 
 def print_json(payload: dict[str, Any]) -> None:
@@ -73,9 +74,35 @@ def send_heartbeat(cfg: AgentConfig, status: str = "online") -> dict[str, Any]:
     return post_json(cfg.control_url, "/api/workers/heartbeat", payload)
 
 
+def claim_next_job(cfg: AgentConfig) -> dict[str, Any] | None:
+    result = post_json(
+        cfg.control_url,
+        "/api/jobs/claim",
+        {
+            "worker_id": cfg.worker_id,
+            "agent_token": cfg.agent_token,
+        },
+    )
+    return result.get("job")
+
+
+def run_cycle(cfg: AgentConfig) -> dict[str, Any]:
+    heartbeat = send_heartbeat(cfg)
+    job = claim_next_job(cfg)
+    if job is None:
+        return {"heartbeat": heartbeat, "job": None}
+    result = run_job(cfg, job)
+    return {"heartbeat": heartbeat, "job": job, "result": result}
+
+
 def cmd_heartbeat(args: argparse.Namespace) -> None:
     cfg = AgentConfig.load(args.config)
     print_json(send_heartbeat(cfg, status=args.status))
+
+
+def cmd_run_once(args: argparse.Namespace) -> None:
+    cfg = AgentConfig.load(args.config)
+    print_json(run_cycle(cfg))
 
 
 def cmd_daemon(args: argparse.Namespace) -> None:
@@ -87,10 +114,10 @@ def cmd_daemon(args: argparse.Namespace) -> None:
     )
     while True:
         try:
-            result = send_heartbeat(cfg)
+            result = run_cycle(cfg)
             print(json.dumps(result, ensure_ascii=False))
         except Exception as exc:
-            print(f"heartbeat failed: {exc}", file=sys.stderr)
+            print(f"agent cycle failed: {exc}", file=sys.stderr)
         if args.once:
             break
         time.sleep(interval)
@@ -136,6 +163,10 @@ def build_parser() -> argparse.ArgumentParser:
     heartbeat.add_argument("--status", default="online")
     heartbeat.set_defaults(func=cmd_heartbeat)
 
+    run_once = sub.add_parser("run-once", help="Send heartbeat, claim one job, run it.")
+    run_once.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    run_once.set_defaults(func=cmd_run_once)
+
     daemon = sub.add_parser("daemon", help="Run the heartbeat daemon.")
     daemon.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
     daemon.add_argument("--interval", type=int, default=None)
@@ -164,4 +195,3 @@ def main(argv: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -21,13 +21,14 @@
 
 ## M2: Job Execution
 
-- [ ] Agent job polling
-- [ ] Job claim/lock API
-- [ ] Job event logs
-- [ ] Smoke runner
+- [x] Agent job polling
+- [x] Job claim/lock API
+- [x] Job event logs
+- [x] Smoke runner
 - [ ] EvoScientist runner adapter
 - [ ] Artifact upload
-- [ ] Approval decision API
+- [x] Approval decision API
+- [ ] Resume/stop blocked jobs from approval decisions
 
 ## M3: Mac Control Surface
 
@@ -63,4 +64,3 @@
 - [ ] `failure_taxonomy`
 - [ ] `research_memories`
 - [ ] weekly loop-engineering report
-

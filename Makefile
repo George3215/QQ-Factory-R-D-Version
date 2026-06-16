@@ -21,7 +21,7 @@ pycheck:
 	$(PYTHON) -m py_compile \
 		control/server.py control/store.py \
 		farmctl/cli.py farmctl/http.py \
-		agent/cli.py agent/config.py agent/http.py agent/inventory.py
+		agent/cli.py agent/config.py agent/http.py agent/inventory.py agent/runner.py
 
 test:
 	$(PYTHON) -m unittest discover -s tests
@@ -43,4 +43,3 @@ clean:
 	rm -rf data __pycache__ .pytest_cache .ruff_cache .mypy_cache
 	find . -type d -name '__pycache__' -prune -exec rm -rf {} +
 	find . -type f -name '*.pyc' -delete
-
