@@ -1,0 +1,8 @@
+{
+  "recipe": "smoke_test",
+  "target_worker_id": "wkr_example",
+  "payload": {
+    "message": "hello loop farm"
+  }
+}
+

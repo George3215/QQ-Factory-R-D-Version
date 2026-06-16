@@ -1,0 +1,34 @@
+machines:
+  - id: lab-gpu-01
+    role: gpu-worker
+    os: ubuntu-22.04
+    tailscale_name: lab-gpu-01
+    tags: [linux, gpu, cuda]
+    resources:
+      cpu: "unknown"
+      gpu: "RTX 4090"
+      memory_gb: 128
+      disk_tb: 4
+    agent:
+      mode: daemon
+      allow_levels: [L0, L1, L2]
+    research_software:
+      - python
+      - cuda
+
+  - id: office-win-01
+    role: windows-gui-worker
+    os: windows-11
+    tailscale_name: office-win-01
+    tags: [windows, gui]
+    resources:
+      cpu: "unknown"
+      gpu: "unknown"
+      memory_gb: 64
+    agent:
+      mode: daemon
+      allow_levels: [L0, L1, L2]
+    research_software:
+      - matlab
+      - comsol
+

@@ -1,0 +1,19 @@
+services:
+  control:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.control
+    environment:
+      LOOP_FARM_HOST: 0.0.0.0
+      LOOP_FARM_PORT: 8787
+      LOOP_FARM_DB: /data/loop-farm-control.sqlite3
+      LOOP_FARM_ADMIN_TOKEN: ${LOOP_FARM_ADMIN_TOKEN:-change-me}
+    ports:
+      - "8787:8787"
+    volumes:
+      - loop_farm_data:/data
+    restart: unless-stopped
+
+volumes:
+  loop_farm_data:
+

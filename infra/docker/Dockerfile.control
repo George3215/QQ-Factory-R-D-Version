@@ -1,0 +1,20 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY pyproject.toml /app/
+COPY control /app/control
+COPY farmctl /app/farmctl
+COPY agent /app/agent
+
+RUN pip install --no-cache-dir .
+
+ENV LOOP_FARM_HOST=0.0.0.0
+ENV LOOP_FARM_PORT=8787
+ENV LOOP_FARM_DB=/data/loop-farm-control.sqlite3
+ENV LOOP_FARM_ADMIN_TOKEN=change-me
+
+VOLUME ["/data"]
+EXPOSE 8787
+
+CMD ["loop-farm-control"]
+

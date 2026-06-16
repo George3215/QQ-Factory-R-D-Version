@@ -1,0 +1,10 @@
+{
+  "control_url": "https://control.example.com",
+  "machine_name": "lab-gpu-01",
+  "worker_id": "wkr_example",
+  "agent_token": "lfat_example",
+  "heartbeat_interval": 10,
+  "work_dir": "/opt/loop-farm-agent/workspaces",
+  "artifact_dir": "/opt/loop-farm-agent/artifacts"
+}
+
