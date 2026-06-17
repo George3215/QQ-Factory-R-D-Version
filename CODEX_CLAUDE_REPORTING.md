@@ -41,7 +41,8 @@ dev-admin-token
 Linux/Windows worker 注册成功后会有一个配置文件，默认位置：
 
 ```text
-~/.loop-farm-agent/config.json
+Linux/macOS: ~/.loop-farm-agent/config.json
+Windows:     %LOCALAPPDATA%\LoopFarmAgent\config.json
 ```
 
 里面包含：
@@ -123,6 +124,7 @@ python3 skills/loop-farm-reporter/scripts/report.py \
 2. LOOP_FARM_CONTROL_URL / LOOP_FARM_WORKER_ID / LOOP_FARM_AGENT_TOKEN
 3. LOOP_FARM_AGENT_CONFIG
 4. ~/.loop-farm-agent/config.json
+5. Windows: %LOCALAPPDATA%\LoopFarmAgent\config.json
 ```
 
 ## 6. Mac 查看报告

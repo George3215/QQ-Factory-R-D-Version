@@ -16,12 +16,25 @@ SOURCES = ("agent", "codex", "claude_code", "system", "human")
 LEVELS = ("debug", "info", "warning", "error", "blocked", "needs_human")
 
 
+def default_config_candidates(path: str | None) -> list[Path]:
+    if path:
+        return [Path(path).expanduser()]
+    env_path = os.environ.get("LOOP_FARM_AGENT_CONFIG")
+    if env_path:
+        return [Path(env_path).expanduser()]
+
+    candidates = [Path(DEFAULT_CONFIG_PATH).expanduser()]
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        candidates.append(Path(local_app_data) / "LoopFarmAgent" / "config.json")
+    return candidates
+
+
 def load_config(path: str | None) -> dict[str, Any]:
-    config_path = path or os.environ.get("LOOP_FARM_AGENT_CONFIG") or DEFAULT_CONFIG_PATH
-    target = Path(config_path).expanduser()
-    if not target.exists():
-        return {}
-    return json.loads(target.read_text(encoding="utf-8"))
+    for target in default_config_candidates(path):
+        if target.exists():
+            return json.loads(target.read_text(encoding="utf-8"))
+    return {}
 
 
 def first_value(*values: str | None) -> str:

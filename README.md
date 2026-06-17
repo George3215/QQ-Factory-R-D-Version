@@ -43,6 +43,7 @@ make smoke
 更详细的 Stage A 使用说明见 [QUICKSTART_STAGE_A.md](./QUICKSTART_STAGE_A.md)。
 一体化安装和三端 worker 安装流程见 [INSTALLATION.md](./INSTALLATION.md)。
 Codex/Claude Code 上报通道见 [CODEX_CLAUDE_REPORTING.md](./CODEX_CLAUDE_REPORTING.md)。
+Windows 已安装 Claude Code 时，优先用 [WINDOWS_CLAUDE_BOOTSTRAP.md](./WINDOWS_CLAUDE_BOOTSTRAP.md)：Mac 生成一次性部署提示词，Windows Claude Code 本机完成安装、注册、验证和上报。
 
 ## 1. 先给结论
 

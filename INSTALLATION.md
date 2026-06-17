@@ -122,6 +122,35 @@ Get-ScheduledTask -TaskName LoopFarmAgent
 
 The installer also copies `skills\loop-farm-reporter` to `%USERPROFILE%\.codex\skills\loop-farm-reporter`.
 
+### Windows Worker With Claude Code
+
+If the Windows machine already has Claude Code, use it as the local bootstrap agent instead of typing long commands through remote desktop.
+
+On the Mac, create a bootstrap token:
+
+```bash
+python3 -m farmctl tokens create \
+  --control-url http://CONTROL_HOST:8787 \
+  --admin-token dev-admin-token \
+  --machine-name office-win-01 \
+  --ttl 7200
+```
+
+Then generate a prompt for Windows Claude Code:
+
+```bash
+python3 -m farmctl install claude-windows-prompt \
+  --control-url http://CONTROL_HOST:8787 \
+  --machine-name office-win-01 \
+  --token lfbt_xxx \
+  --install-base-url http://CONTROL_HOST:8787/install \
+  --repo-url https://github.com/George3215/QQ-Factory-R-D-Version.git
+```
+
+Paste the generated prompt into Claude Code on the Windows worker. Claude Code should check prerequisites, run the installer, send a heartbeat, and report success back to the Mac Dashboard.
+
+See [WINDOWS_CLAUDE_BOOTSTRAP.md](./WINDOWS_CLAUDE_BOOTSTRAP.md).
+
 ## 6. Optional macOS Worker
 
 The normal architecture uses Mac as the control host, not as a worker. Only use this if you intentionally want to add another Mac as a worker:

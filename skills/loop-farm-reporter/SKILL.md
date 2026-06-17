@@ -27,7 +27,7 @@ The script reads worker credentials from, in order:
 
 1. Explicit arguments: `--control-url`, `--worker-id`, `--agent-token`
 2. Environment variables: `LOOP_FARM_CONTROL_URL`, `LOOP_FARM_WORKER_ID`, `LOOP_FARM_AGENT_TOKEN`
-3. Worker config: `LOOP_FARM_AGENT_CONFIG` or `~/.loop-farm-agent/config.json`
+3. Worker config: `LOOP_FARM_AGENT_CONFIG`, `~/.loop-farm-agent/config.json`, or Windows `%LOCALAPPDATA%\LoopFarmAgent\config.json`
 
 ## Levels
 

@@ -5,6 +5,7 @@ import json
 import os
 import shlex
 import sys
+import textwrap
 from typing import Any
 from urllib.parse import urlencode
 
@@ -147,6 +148,96 @@ def worker_install_command(
     raise ValueError(f"unsupported platform: {platform}")
 
 
+def windows_install_script(
+    control_url: str,
+    machine_name: str,
+    token: str,
+    install_base_url: str,
+    repo_url: str,
+    tailscale_auth_key: str,
+) -> str:
+    base = install_base_url.rstrip("/")
+    script = [
+        '$ErrorActionPreference = "Stop"',
+        f'$ControlUrl = "{control_url}"',
+        f'$BootstrapToken = "{token}"',
+        f'$MachineName = "{machine_name}"',
+        f'$RepoUrl = "{repo_url}"',
+        f'$TailscaleAuthKey = "{tailscale_auth_key}"',
+        '$Installer = Join-Path $env:TEMP "worker-windows.ps1"',
+        f'Invoke-WebRequest -UseBasicParsing "{base}/worker-windows.ps1" -OutFile $Installer',
+        "& $Installer `",
+        "  -ControlUrl $ControlUrl `",
+        "  -BootstrapToken $BootstrapToken `",
+        "  -MachineName $MachineName `",
+        "  -RepoUrl $RepoUrl"
+        + (" `" if tailscale_auth_key else ""),
+    ]
+    if tailscale_auth_key:
+        script.append("  -TailscaleAuthKey $TailscaleAuthKey")
+    return "\n".join(script)
+
+
+def claude_windows_prompt(
+    control_url: str,
+    machine_name: str,
+    token: str,
+    install_base_url: str,
+    repo_url: str,
+    tailscale_auth_key: str,
+) -> str:
+    install_script = windows_install_script(
+        control_url=control_url,
+        machine_name=machine_name,
+        token=token,
+        install_base_url=install_base_url,
+        repo_url=repo_url,
+        tailscale_auth_key=tailscale_auth_key,
+    )
+    indented_install_script = textwrap.indent(install_script, "        ")
+    return textwrap.dedent(
+        f"""
+        你现在运行在 Windows worker `{machine_name}` 的 Claude Code 里。
+
+        目标：把这台 Windows 接入我的 QQ Factory / Loop Farm Mac 控制端，并让后续 Codex、Claude Code、EvoScientist、本地 agent 都能主动向 Mac 汇报。
+
+        Mac 控制端：
+        - Control URL: {control_url}
+        - Install base URL: {install_base_url.rstrip("/")}
+        - Repo URL: {repo_url}
+
+        执行策略：
+        1. 你是这台 Windows 的本地执行代理，不要让我远程手动敲命令。
+        2. 先在 PowerShell 检查 `python --version`、`git --version`、`Invoke-WebRequest -UseBasicParsing {control_url}/api/health`。
+        3. 如果 Python 或 Git 缺失，不要硬装；先向我说明缺哪个依赖，以及建议用 winget 安装的命令。
+        4. 如果健康检查不能访问 Mac，先诊断网络、控制端 URL、Windows 防火墙/校园网问题。
+        5. 如果依赖和网络都正常，运行下面的 PowerShell 安装脚本。
+        6. 安装成功后，运行一次 heartbeat，并发送一条 `source=claude_code` 的报告到 Mac。
+        7. 以后所有低风险问题自己处理；只有授权、账号、许可证、删除数据、重启机器、改网络、花钱租算力、改变研究方向/边界条件时，才向我请求批准。
+
+        PowerShell 安装脚本：
+
+        ```powershell
+{indented_install_script}
+        ```
+
+        安装后验证：
+
+        ```powershell
+        $Config = Join-Path $env:LOCALAPPDATA "LoopFarmAgent\\config.json"
+        $Agent = Join-Path $env:LOCALAPPDATA "LoopFarmAgent\\venv\\Scripts\\loop-farm-agent.exe"
+        & $Agent heartbeat --config $Config
+        & $Agent report --config $Config --source claude_code --level info --title "Windows Claude Code bootstrap finished" --message "Claude Code installed and verified LoopFarmAgent on this Windows worker."
+        Get-ScheduledTask -TaskName LoopFarmAgent
+        ```
+
+        交付给我的结果：
+        - 成功时：告诉我 worker 已注册，并说明 Mac Dashboard 的 Reports/Chat 页应该能看到报告。
+        - 失败时：给出失败阶段、关键错误、你已经尝试过的修复、下一步需要我批准或人工处理的事项。
+        """
+    ).strip()
+
+
 def cmd_worker_bootstrap_command(args: argparse.Namespace) -> None:
     print(bootstrap_shell_command(args))
 
@@ -155,6 +246,19 @@ def cmd_install_worker_command(args: argparse.Namespace) -> None:
     print(
         worker_install_command(
             platform=args.platform,
+            control_url=args.control_url,
+            machine_name=args.machine_name,
+            token=args.token,
+            install_base_url=args.install_base_url,
+            repo_url=args.repo_url,
+            tailscale_auth_key=args.tailscale_auth_key,
+        )
+    )
+
+
+def cmd_install_claude_windows_prompt(args: argparse.Namespace) -> None:
+    print(
+        claude_windows_prompt(
             control_url=args.control_url,
             machine_name=args.machine_name,
             token=args.token,
@@ -352,6 +456,25 @@ def build_parser() -> argparse.ArgumentParser:
     install_worker.add_argument("--repo-url", default="")
     install_worker.add_argument("--tailscale-auth-key", default="")
     install_worker.set_defaults(func=cmd_install_worker_command)
+
+    claude_windows = install_sub.add_parser(
+        "claude-windows-prompt",
+        help="Print a Claude Code prompt that bootstraps a Windows worker.",
+    )
+    claude_windows.add_argument("--control-url", required=True)
+    claude_windows.add_argument("--machine-name", required=True)
+    claude_windows.add_argument("--token", required=True)
+    claude_windows.add_argument(
+        "--install-base-url",
+        default="https://control.example.com/install",
+        help="Base URL serving worker-windows.ps1.",
+    )
+    claude_windows.add_argument(
+        "--repo-url",
+        default="https://github.com/George3215/QQ-Factory-R-D-Version.git",
+    )
+    claude_windows.add_argument("--tailscale-auth-key", default="")
+    claude_windows.set_defaults(func=cmd_install_claude_windows_prompt)
 
     jobs = sub.add_parser("jobs", help="Manage jobs.")
     jobs_sub = jobs.add_subparsers(dest="jobs_command", required=True)
