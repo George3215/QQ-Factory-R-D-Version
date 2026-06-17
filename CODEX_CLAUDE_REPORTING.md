@@ -7,7 +7,7 @@
 ```text
 Worker 上的 Codex / Claude Code
   -> 读取 worker config
-  -> POST /api/reports
+  -> POST /api/reports 或 /api/worker-chat/*
   -> Mac control server 写入 SQLite
   -> Mac Dashboard 的 Reports 页展示
   -> Mac Dashboard 的 Chat 页按 worker 归档
@@ -78,6 +78,20 @@ python3 -m agent report \
   --level warning \
   --title "Patch compiled but tests missing" \
   --message "The code change compiles, but no domain regression test exists yet."
+```
+
+Claude Code 读取 Mac 发给这台 worker 的对话：
+
+```bash
+python3 -m agent chat-list --limit 20
+```
+
+Claude Code 回复 Mac：
+
+```bash
+python3 -m agent chat-reply \
+  --role claude_code \
+  --content "I can proceed with the smaller parameter range."
 ```
 
 需要人类判断时：
@@ -171,7 +185,28 @@ python3 -m farmctl chat list \
   --worker-id wkr_xxx
 ```
 
-## 7. Agent 和人类分工
+## 7. Claude Code Skill
+
+仓库内置 Claude Code 项目级 skill 和 slash command：
+
+```text
+.claude/skills/loop-farm-mac/SKILL.md
+.claude/commands/loop-farm-mac.md
+```
+
+Windows/Linux worker 注册成功并在这个仓库中打开 Claude Code 后，可以直接使用：
+
+```text
+/loop-farm-mac pull
+/loop-farm-mac health
+/loop-farm-mac report Local runner compiled and smoke test passed.
+/loop-farm-mac reply I will retry with a smaller batch size.
+/loop-farm-mac approval Should I allocate a paid GPU instance for this run?
+```
+
+这个 skill 只使用 worker 自己的 `agent_token`，不能读取其他 worker 的线程，也不需要 Mac `admin-token`。
+
+## 8. Agent 和人类分工
 
 AI 应该自动上报：
 

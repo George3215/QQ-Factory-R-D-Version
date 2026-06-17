@@ -16,6 +16,14 @@ from .inventory import collect_inventory, collect_metrics, self_test
 from .runner import run_job
 
 
+def default_config_path() -> str:
+    if os.environ.get("LOOP_FARM_AGENT_CONFIG"):
+        return os.environ["LOOP_FARM_AGENT_CONFIG"]
+    if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+        return str(Path(os.environ["LOCALAPPDATA"]) / "LoopFarmAgent" / "config.json")
+    return DEFAULT_CONFIG_PATH
+
+
 def print_json(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
@@ -155,6 +163,32 @@ def cmd_report(args: argparse.Namespace) -> None:
     print_json(post_json(cfg.control_url, "/api/reports", payload))
 
 
+def cmd_chat_list(args: argparse.Namespace) -> None:
+    cfg = AgentConfig.load(args.config)
+    payload = {
+        "worker_id": cfg.worker_id,
+        "agent_token": cfg.agent_token,
+        "limit": args.limit,
+    }
+    print_json(post_json(cfg.control_url, "/api/worker-chat/list", payload))
+
+
+def cmd_chat_reply(args: argparse.Namespace) -> None:
+    cfg = AgentConfig.load(args.config)
+    payload_body: dict[str, Any] = {}
+    if args.payload_json:
+        payload_body = json.loads(args.payload_json)
+    payload = {
+        "worker_id": cfg.worker_id,
+        "agent_token": cfg.agent_token,
+        "role": args.role,
+        "author": args.author or args.role,
+        "content": args.content,
+        "payload": payload_body,
+    }
+    print_json(post_json(cfg.control_url, "/api/worker-chat/reply", payload))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="loop-farm-agent",
@@ -170,41 +204,54 @@ def build_parser() -> argparse.ArgumentParser:
     register.add_argument("--bootstrap-token", required=True)
     register.add_argument("--machine-name", default=None)
     register.add_argument("--tag", action="append", default=[])
-    register.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    register.add_argument("--config", default=default_config_path())
     register.add_argument("--work-dir", default="~/.loop-farm-agent/workspaces")
     register.add_argument("--artifact-dir", default="~/.loop-farm-agent/artifacts")
     register.set_defaults(func=cmd_register)
 
     heartbeat = sub.add_parser("heartbeat", help="Send one heartbeat.")
-    heartbeat.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    heartbeat.add_argument("--config", default=default_config_path())
     heartbeat.add_argument("--status", default="online")
     heartbeat.set_defaults(func=cmd_heartbeat)
 
     run_once = sub.add_parser("run-once", help="Send heartbeat, claim one job, run it.")
-    run_once.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    run_once.add_argument("--config", default=default_config_path())
     run_once.set_defaults(func=cmd_run_once)
 
     daemon = sub.add_parser("daemon", help="Run the heartbeat daemon.")
-    daemon.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    daemon.add_argument("--config", default=default_config_path())
     daemon.add_argument("--interval", type=int, default=None)
     daemon.add_argument("--once", action="store_true")
     daemon.set_defaults(func=cmd_daemon)
 
     approval = sub.add_parser("approval-request", help="Create an approval request.")
-    approval.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    approval.add_argument("--config", default=default_config_path())
     approval.add_argument("--job-id", default=None)
     approval.add_argument("--title", required=True)
     approval.add_argument("--body-json", default="{}")
     approval.set_defaults(func=cmd_approval_request)
 
     report = sub.add_parser("report", help="Send a Codex/Claude/Agent report to the Mac control host.")
-    report.add_argument("--config", default=os.environ.get("LOOP_FARM_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
+    report.add_argument("--config", default=default_config_path())
     report.add_argument("--source", choices=["agent", "codex", "claude_code", "system", "human"], default="agent")
     report.add_argument("--level", choices=["debug", "info", "warning", "error", "blocked", "needs_human"], default="info")
     report.add_argument("--title", required=True)
     report.add_argument("--message", default="")
     report.add_argument("--payload-json", default="{}")
     report.set_defaults(func=cmd_report)
+
+    chat_list = sub.add_parser("chat-list", help="Read this worker's Mac chat thread.")
+    chat_list.add_argument("--config", default=default_config_path())
+    chat_list.add_argument("--limit", type=int, default=50)
+    chat_list.set_defaults(func=cmd_chat_list)
+
+    chat_reply = sub.add_parser("chat-reply", help="Reply to this worker's Mac chat thread.")
+    chat_reply.add_argument("--config", default=default_config_path())
+    chat_reply.add_argument("--role", choices=["agent", "codex", "claude_code", "system"], default="claude_code")
+    chat_reply.add_argument("--author", default=None)
+    chat_reply.add_argument("--content", required=True)
+    chat_reply.add_argument("--payload-json", default="{}")
+    chat_reply.set_defaults(func=cmd_chat_reply)
 
     return parser
 

@@ -212,8 +212,9 @@ def claude_windows_prompt(
         3. 如果 Python 或 Git 缺失，不要硬装；先向我说明缺哪个依赖，以及建议用 winget 安装的命令。
         4. 如果健康检查不能访问 Mac，先诊断网络、控制端 URL、Windows 防火墙/校园网问题。
         5. 如果依赖和网络都正常，运行下面的 PowerShell 安装脚本。
-        6. 安装成功后，运行一次 heartbeat，并发送一条 `source=claude_code` 的报告到 Mac。
-        7. 以后所有低风险问题自己处理；只有授权、账号、许可证、删除数据、重启机器、改网络、花钱租算力、改变研究方向/边界条件时，才向我请求批准。
+        6. 安装成功后，运行一次 heartbeat，发送一条 `source=claude_code` 的报告到 Mac，并验证 `chat-list` 能读取这台 worker 的 Mac 对话线程。
+        7. 后续在仓库 `%LOCALAPPDATA%\\LoopFarm\\repo` 中优先使用 `/loop-farm-mac pull|health|report|reply|approval` 和 Mac 交互。
+        8. 以后所有低风险问题自己处理；只有授权、账号、许可证、删除数据、重启机器、改网络、花钱租算力、改变研究方向/边界条件时，才向我请求批准。
 
         PowerShell 安装脚本：
 
@@ -228,6 +229,7 @@ def claude_windows_prompt(
         $Agent = Join-Path $env:LOCALAPPDATA "LoopFarmAgent\\venv\\Scripts\\loop-farm-agent.exe"
         & $Agent heartbeat --config $Config
         & $Agent report --config $Config --source claude_code --level info --title "Windows Claude Code bootstrap finished" --message "Claude Code installed and verified LoopFarmAgent on this Windows worker."
+        & $Agent chat-list --config $Config --limit 20
         Get-ScheduledTask -TaskName LoopFarmAgent
         ```
 

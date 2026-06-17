@@ -739,8 +739,56 @@ class Store:
 
     def create_chat_message(self, payload: dict[str, Any]) -> dict[str, Any]:
         worker_id = str(payload["worker_id"])
+        return self._insert_chat_message(
+            worker_id=worker_id,
+            role=str(payload.get("role") or "human"),
+            author=str(payload.get("author") or payload.get("role") or "human"),
+            content=str(payload.get("content") or ""),
+            payload=payload.get("payload") or {},
+            actor_type="admin",
+            actor_id="control",
+        )
+
+    def list_worker_chat_messages(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        worker_id = str(payload["worker_id"])
+        agent_token = str(payload["agent_token"])
+        self.verify_worker(worker_id, agent_token)
+        return self.list_chat_messages(
+            worker_id=worker_id,
+            limit=int(payload.get("limit") or 200),
+        )
+
+    def create_worker_chat_message(self, payload: dict[str, Any]) -> dict[str, Any]:
+        worker_id = str(payload["worker_id"])
+        agent_token = str(payload["agent_token"])
+        self.verify_worker(worker_id, agent_token)
+        role = str(payload.get("role") or payload.get("source") or "claude_code")
+        if role == "human":
+            raise ValueError("worker chat messages cannot use human role")
+        if role not in {"agent", "codex", "claude_code", "system"}:
+            raise ValueError("role must be agent, codex, claude_code, or system")
+        return self._insert_chat_message(
+            worker_id=worker_id,
+            role=role,
+            author=str(payload.get("author") or role),
+            content=str(payload.get("content") or ""),
+            payload=payload.get("payload") or {},
+            actor_type="worker",
+            actor_id=worker_id,
+        )
+
+    def _insert_chat_message(
+        self,
+        *,
+        worker_id: str,
+        role: str,
+        author: str,
+        content: str,
+        payload: dict[str, Any],
+        actor_type: str,
+        actor_id: str,
+    ) -> dict[str, Any]:
         self.require_worker_exists(worker_id)
-        role = str(payload.get("role") or "human")
         if role not in {"human", "agent", "codex", "claude_code", "system"}:
             raise ValueError("role must be human, agent, codex, claude_code, or system")
         message_id = new_id("msg")
@@ -749,9 +797,9 @@ class Store:
             "id": message_id,
             "worker_id": worker_id,
             "role": role,
-            "author": str(payload.get("author") or role),
-            "content": str(payload.get("content") or ""),
-            "payload": payload.get("payload") or {},
+            "author": author,
+            "content": content,
+            "payload": payload,
             "created_at": ts,
         }
         if not row["content"]:
@@ -773,7 +821,7 @@ class Store:
                     ts,
                 ),
             )
-            self.audit("admin", "control", "chat_message.create", row)
+            self.audit(actor_type, actor_id, "chat_message.create", row)
         return row
 
     def list_chat_messages(

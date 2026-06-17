@@ -6,7 +6,7 @@
 
 ## 当前仓库状态
 
-这个仓库现在已经包含 Stage A 原型：一台新机器可以通过 bootstrap token 注册成 worker，向 Mac 控制中心发送 heartbeat，并把 Codex/Claude Code/Agent 的状态报告推回 Mac。后续会在这个基础上接入 EvoScientist job runner、云服务器自动租赁和科研数据飞轮。
+这个仓库现在已经包含 Stage A 原型：一台新机器可以通过 bootstrap token 注册成 worker，向 Mac 控制中心发送 heartbeat，把 Codex/Claude Code/Agent 的状态报告推回 Mac，并通过 worker chat 读取/回复自己的 Mac 对话线程。后续会在这个基础上接入 EvoScientist job runner、云服务器自动租赁和科研数据飞轮。
 
 当前架构决策：
 
@@ -21,12 +21,13 @@ VPS / Tailscale / RustDesk = 网络与远控兜底，不是第二个主控
 
 ```text
 control/     最小控制中心 API，保存 worker、job、report、chat、approval、audit
-agent/       EvoScientist worker wrapper 的最小外壳：注册、heartbeat、上报、审批请求
+agent/       EvoScientist worker wrapper 的最小外壳：注册、heartbeat、上报、worker chat、审批请求
 farmctl/     Mac 侧 CLI：创建 token、列 worker、创建 job、查看 report/chat、生成安装命令
 install/     Linux/Windows worker 一键安装脚本，自动复制上报 skill；macOS worker 为备用
 apps/        轻量控制台 UI，由 control server 直接托管，支持按 worker 切换对话框
 infra/       Docker、Compose、systemd、cloud-init 模板
 skills/      Codex skill：把 Codex/Claude Code 状态推回 Mac
+.claude/     Claude Code 项目级 skill 和 /loop-farm-mac 命令：让 Claude Code 直接和 Mac 交互
 examples/    示例机器清单、worker 配置、job payload
 tests/       最小单元测试
 scripts/     smoke 测试脚本
@@ -44,6 +45,7 @@ make smoke
 一体化安装和三端 worker 安装流程见 [INSTALLATION.md](./INSTALLATION.md)。
 Codex/Claude Code 上报通道见 [CODEX_CLAUDE_REPORTING.md](./CODEX_CLAUDE_REPORTING.md)。
 Windows 已安装 Claude Code 时，优先用 [WINDOWS_CLAUDE_BOOTSTRAP.md](./WINDOWS_CLAUDE_BOOTSTRAP.md)：Mac 生成一次性部署提示词，Windows Claude Code 本机完成安装、注册、验证和上报。
+注册完成后，Windows/Linux 上的 Claude Code 可以在仓库里直接用 `/loop-farm-mac pull|health|report|reply|approval` 和 Mac 控制端交互。
 
 ## 1. 先给结论
 

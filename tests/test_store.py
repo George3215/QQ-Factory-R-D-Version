@@ -287,6 +287,92 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(len(second_messages), 1)
         self.assertEqual(second_messages[0]["content"], "Stand by.")
 
+    def test_worker_can_read_and_reply_to_own_chat_thread(self) -> None:
+        first_bootstrap = self.store.create_bootstrap_token("lab-gpu-01", ttl_seconds=60)
+        second_bootstrap = self.store.create_bootstrap_token("win-lab-01", ttl_seconds=60)
+        first = self.store.register_worker(
+            {
+                "token": first_bootstrap["token"],
+                "machine_name": "lab-gpu-01",
+                "hostname": "lab-gpu-01.local",
+                "os": "linux",
+                "tags": [],
+                "metadata": {},
+            }
+        )
+        second = self.store.register_worker(
+            {
+                "token": second_bootstrap["token"],
+                "machine_name": "win-lab-01",
+                "hostname": "win-lab-01.local",
+                "os": "windows",
+                "tags": [],
+                "metadata": {},
+            }
+        )
+
+        self.store.create_chat_message(
+            {
+                "worker_id": first["id"],
+                "role": "human",
+                "author": "mac",
+                "content": "Run the smoke test.",
+            }
+        )
+        self.store.create_chat_message(
+            {
+                "worker_id": second["id"],
+                "role": "human",
+                "author": "mac",
+                "content": "Do not expose this to first worker.",
+            }
+        )
+
+        visible = self.store.list_worker_chat_messages(
+            {
+                "worker_id": first["id"],
+                "agent_token": first["agent_token"],
+                "limit": 10,
+            }
+        )
+        self.assertEqual(len(visible), 1)
+        self.assertEqual(visible[0]["content"], "Run the smoke test.")
+
+        reply = self.store.create_worker_chat_message(
+            {
+                "worker_id": first["id"],
+                "agent_token": first["agent_token"],
+                "role": "claude_code",
+                "content": "Smoke test passed.",
+                "payload": {"command": "make smoke"},
+            }
+        )
+
+        self.assertEqual(reply["role"], "claude_code")
+        self.assertEqual(reply["payload"]["command"], "make smoke")
+        first_messages = self.store.list_chat_messages(worker_id=first["id"])
+        self.assertEqual(
+            [message["role"] for message in first_messages],
+            ["human", "claude_code"],
+        )
+
+        with self.assertRaises(ValueError):
+            self.store.list_worker_chat_messages(
+                {
+                    "worker_id": first["id"],
+                    "agent_token": second["agent_token"],
+                }
+            )
+        with self.assertRaises(ValueError):
+            self.store.create_worker_chat_message(
+                {
+                    "worker_id": first["id"],
+                    "agent_token": first["agent_token"],
+                    "role": "human",
+                    "content": "I should not be accepted.",
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

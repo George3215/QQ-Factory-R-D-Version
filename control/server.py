@@ -131,6 +131,15 @@ class ControlHandler(BaseHTTPRequestHandler):
                 self.send_json(
                     self.store.create_chat_message(body), status=HTTPStatus.CREATED
                 )
+            elif path == "/api/worker-chat/list":
+                self.send_json(
+                    {"messages": self.store.list_worker_chat_messages(body)}
+                )
+            elif path == "/api/worker-chat/reply":
+                self.send_json(
+                    self.store.create_worker_chat_message(body),
+                    status=HTTPStatus.CREATED,
+                )
             elif path == "/api/approvals":
                 self.send_json(
                     self.store.create_approval(body), status=HTTPStatus.CREATED

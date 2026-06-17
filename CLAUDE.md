@@ -48,6 +48,30 @@ Use `needs_human` only for a real human decision:
 & $Agent report --config $Config --source claude_code --level needs_human --title "License decision needed" --message "The next run needs a COMSOL license allocation decision." --payload-json '{"options":["wait","move_worker","stop"],"recommended":"move_worker","risk":"L4"}'
 ```
 
+## Talking With Mac
+
+This repository contains a Claude Code project skill:
+
+```text
+.claude/skills/loop-farm-mac/SKILL.md
+```
+
+When you need Mac-side context or want to report back, use the `loop-farm-mac` skill or the slash command:
+
+```text
+/loop-farm-mac pull
+/loop-farm-mac report Finished the local smoke test.
+/loop-farm-mac reply I can proceed with the smaller parameter range.
+/loop-farm-mac approval Which boundary condition should I use?
+```
+
+Equivalent direct commands on Windows:
+
+```powershell
+& $Agent chat-list --config $Config --limit 20
+& $Agent chat-reply --config $Config --role claude_code --content "I can proceed with the smaller parameter range."
+```
+
 ## Daily Direction
 
 Optimize for these questions:
@@ -55,4 +79,3 @@ Optimize for these questions:
 1. Can this machine be controlled from the Mac with less manual login?
 2. Can the agent handle one more low-value problem automatically?
 3. Can one human judgment be turned into a reusable rule, template, or dataset?
-

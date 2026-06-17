@@ -81,6 +81,7 @@ Claude Code 应该自动完成：
 6. 注册 Windows Scheduled Task：LoopFarmAgent。
 7. 运行 heartbeat。
 8. 发送 source=claude_code 的报告到 Mac。
+9. 在仓库中启用 `.claude/skills/loop-farm-mac` 和 `/loop-farm-mac`，作为后续长期交互入口。
 ```
 
 如果 Python/Git 缺失，Claude Code 应停止并说明建议安装命令，不要未经批准擅自扩大权限。
@@ -128,6 +129,18 @@ $Agent = Join-Path $env:LOCALAPPDATA "LoopFarmAgent\venv\Scripts\loop-farm-agent
 & $Agent report --config $Config --source claude_code --level info --title "Experiment stage finished" --message "The Windows worker finished the current setup stage."
 ```
 
+更推荐的长期方式是在 Claude Code 里直接用本仓库的 slash command：
+
+```text
+/loop-farm-mac pull
+/loop-farm-mac health
+/loop-farm-mac report Experiment stage finished.
+/loop-farm-mac reply I will continue with the smaller parameter range.
+/loop-farm-mac approval Should I use the paid GPU worker for this run?
+```
+
+这些命令会通过 worker 自己的 `agent_token` 和 Mac 通信，不需要也不应该获取 Mac `admin-token`。
+
 需要人类判断时：
 
 ```powershell
@@ -142,4 +155,3 @@ Windows/Linux 主动上报
 低价值问题自动处理
 高价值问题才找人
 ```
-

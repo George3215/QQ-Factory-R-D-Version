@@ -14,3 +14,7 @@ venv/
 *.log
 
 install/*-claude-prompt.txt
+install/*-claude-run.local.ps1
+install/c
+install/p
+apps/control-ui/i
