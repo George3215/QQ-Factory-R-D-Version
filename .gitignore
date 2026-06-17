@@ -13,3 +13,4 @@ venv/
 *.db
 *.log
 
+install/*-claude-prompt.txt
